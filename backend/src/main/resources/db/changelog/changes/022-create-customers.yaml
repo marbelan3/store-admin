@@ -1,0 +1,195 @@
+databaseChangeLog:
+  - changeSet:
+      id: 022-create-customers
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: customers
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: first_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last_name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: email
+                  type: VARCHAR(255)
+              - column:
+                  name: phone
+                  type: VARCHAR(50)
+              - column:
+                  name: notes
+                  type: TEXT
+              - column:
+                  name: total_orders
+                  type: INT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: total_spent
+                  type: DECIMAL(12,2)
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: customers
+            baseColumnNames: tenant_id
+            referencedTableName: tenants
+            referencedColumnNames: id
+            constraintName: fk_customers_tenant
+            onDelete: CASCADE
+
+        - createIndex:
+            tableName: customers
+            indexName: idx_customers_tenant
+            columns:
+              - column:
+                  name: tenant_id
+
+        - createIndex:
+            tableName: customers
+            indexName: idx_customers_email
+            columns:
+              - column:
+                  name: tenant_id
+              - column:
+                  name: email
+
+        - createTable:
+            tableName: customer_addresses
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: customer_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: type
+                  type: VARCHAR(20)
+              - column:
+                  name: line1
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: line2
+                  type: VARCHAR(255)
+              - column:
+                  name: city
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: state
+                  type: VARCHAR(100)
+              - column:
+                  name: postal_code
+                  type: VARCHAR(20)
+              - column:
+                  name: country
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: is_default
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: customer_addresses
+            baseColumnNames: customer_id
+            referencedTableName: customers
+            referencedColumnNames: id
+            constraintName: fk_customer_addresses_customer
+            onDelete: CASCADE
+
+        - createIndex:
+            tableName: customer_addresses
+            indexName: idx_customer_addresses_customer
+            columns:
+              - column:
+                  name: customer_id
+
+  - changeSet:
+      id: 022-add-customer-id-to-orders
+      author: g2u-team
+      changes:
+        - addColumn:
+            tableName: orders
+            columns:
+              - column:
+                  name: customer_id
+                  type: BINARY(16)
+
+        - addForeignKeyConstraint:
+            baseTableName: orders
+            baseColumnNames: customer_id
+            referencedTableName: customers
+            referencedColumnNames: id
+            constraintName: fk_orders_customer
+            onDelete: SET NULL
+
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_customer
+            columns:
+              - column:
+                  name: customer_id

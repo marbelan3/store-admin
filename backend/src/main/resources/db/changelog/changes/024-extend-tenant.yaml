@@ -1,0 +1,26 @@
+databaseChangeLog:
+  - changeSet:
+      id: 024-extend-tenant-branding
+      author: g2u-team
+      changes:
+        - addColumn:
+            tableName: tenants
+            columns:
+              - column:
+                  name: primary_color
+                  type: VARCHAR(20)
+              - column:
+                  name: tax_rate
+                  type: DECIMAL(5,2)
+              - column:
+                  name: business_email
+                  type: VARCHAR(255)
+              - column:
+                  name: business_phone
+                  type: VARCHAR(50)
+              - column:
+                  name: business_address
+                  type: VARCHAR(1000)
+              - column:
+                  name: website
+                  type: VARCHAR(500)

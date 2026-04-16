@@ -1,0 +1,138 @@
+databaseChangeLog:
+  - changeSet:
+      id: 017-create-webhook-endpoints
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: webhook_endpoints
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: url
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: events
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: secret
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+        - addForeignKeyConstraint:
+            baseTableName: webhook_endpoints
+            baseColumnNames: tenant_id
+            referencedTableName: tenants
+            referencedColumnNames: id
+            constraintName: fk_webhook_endpoints_tenant
+            onDelete: CASCADE
+        - createIndex:
+            tableName: webhook_endpoints
+            indexName: idx_webhook_endpoints_tenant_active
+            columns:
+              - column:
+                  name: tenant_id
+              - column:
+                  name: active
+
+  - changeSet:
+      id: 017-create-webhook-deliveries
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: webhook_deliveries
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: webhook_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: event
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: payload
+                  type: JSON
+              - column:
+                  name: response_status
+                  type: INT
+              - column:
+                  name: success
+                  type: BOOLEAN
+                  constraints:
+                    nullable: false
+              - column:
+                  name: attempt
+                  type: INT
+                  defaultValueNumeric: 1
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: webhook_deliveries
+            baseColumnNames: webhook_id
+            referencedTableName: webhook_endpoints
+            referencedColumnNames: id
+            constraintName: fk_webhook_deliveries_endpoint
+            onDelete: CASCADE
+        - createIndex:
+            tableName: webhook_deliveries
+            indexName: idx_webhook_deliveries_webhook_id
+            columns:
+              - column:
+                  name: webhook_id
+        - createIndex:
+            tableName: webhook_deliveries
+            indexName: idx_webhook_deliveries_created_at
+            columns:
+              - column:
+                  name: created_at
+                  descending: true

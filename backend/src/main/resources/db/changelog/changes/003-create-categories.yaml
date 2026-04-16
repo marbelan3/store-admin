@@ -1,0 +1,83 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-categories
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: categories
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: parent_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: slug
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: image_url
+                  type: TEXT
+              - column:
+                  name: path
+                  type: VARCHAR(1000)
+              - column:
+                  name: sort_order
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: categories
+            baseColumnNames: tenant_id
+            referencedTableName: tenants
+            referencedColumnNames: id
+            constraintName: fk_categories_tenant
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: categories
+            baseColumnNames: parent_id
+            referencedTableName: categories
+            referencedColumnNames: id
+            constraintName: fk_categories_parent
+            onDelete: SET NULL
+        - createIndex:
+            tableName: categories
+            indexName: idx_categories_tenant_id
+            columns:
+              - column:
+                  name: tenant_id
+        - addUniqueConstraint:
+            tableName: categories
+            columnNames: tenant_id, slug
+            constraintName: uq_categories_tenant_slug

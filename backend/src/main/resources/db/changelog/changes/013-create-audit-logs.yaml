@@ -1,0 +1,84 @@
+databaseChangeLog:
+  - changeSet:
+      id: 013-create-audit-logs
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: audit_logs
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: user_id
+                  type: BINARY(16)
+              - column:
+                  name: action
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: entity_type
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: entity_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: changes
+                  type: JSON
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: audit_logs
+            baseColumnNames: tenant_id
+            referencedTableName: tenants
+            referencedColumnNames: id
+            constraintName: fk_audit_logs_tenant
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: audit_logs
+            baseColumnNames: user_id
+            referencedTableName: users
+            referencedColumnNames: id
+            constraintName: fk_audit_logs_user
+            onDelete: SET NULL
+        - createIndex:
+            tableName: audit_logs
+            indexName: idx_audit_logs_tenant_id
+            columns:
+              - column:
+                  name: tenant_id
+        - createIndex:
+            tableName: audit_logs
+            indexName: idx_audit_logs_entity_type
+            columns:
+              - column:
+                  name: entity_type
+        - createIndex:
+            tableName: audit_logs
+            indexName: idx_audit_logs_user_id
+            columns:
+              - column:
+                  name: user_id
+        - createIndex:
+            tableName: audit_logs
+            indexName: idx_audit_logs_created_at
+            columns:
+              - column:
+                  name: created_at

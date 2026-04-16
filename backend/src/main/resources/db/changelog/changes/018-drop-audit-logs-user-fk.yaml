@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 018-drop-audit-logs-user-fk
+      author: g2u-team
+      comment: Audit logs should not have FK on user_id - they must persist regardless of user existence
+      changes:
+        - dropForeignKeyConstraint:
+            baseTableName: audit_logs
+            constraintName: fk_audit_logs_user

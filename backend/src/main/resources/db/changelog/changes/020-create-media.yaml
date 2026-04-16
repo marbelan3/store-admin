@@ -1,0 +1,102 @@
+databaseChangeLog:
+  - changeSet:
+      id: 020-create-media-table
+      author: g2u-team
+      comment: Create centralized media table for uploaded files
+      changes:
+        - createTable:
+            tableName: media
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: filename
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: original_name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: mime_type
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: size
+                  type: BIGINT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: url
+                  type: VARCHAR(500)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: alt_text
+                  type: VARCHAR(500)
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: media
+            baseColumnNames: tenant_id
+            referencedTableName: tenants
+            referencedColumnNames: id
+            constraintName: fk_media_tenant
+            onDelete: CASCADE
+        - createIndex:
+            tableName: media
+            indexName: idx_media_tenant
+            columns:
+              - column:
+                  name: tenant_id
+
+  - changeSet:
+      id: 020-add-media-id-to-product-media
+      author: g2u-team
+      comment: Add optional media_id FK to product_media for linking to centralized media
+      changes:
+        - addColumn:
+            tableName: product_media
+            columns:
+              - column:
+                  name: media_id
+                  type: BINARY(16)
+        - addForeignKeyConstraint:
+            baseTableName: product_media
+            baseColumnNames: media_id
+            referencedTableName: media
+            referencedColumnNames: id
+            constraintName: fk_product_media_media
+            onDelete: SET NULL
+        - createIndex:
+            tableName: product_media
+            indexName: idx_product_media_media
+            columns:
+              - column:
+                  name: media_id

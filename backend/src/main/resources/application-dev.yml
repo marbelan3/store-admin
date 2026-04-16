@@ -1,0 +1,15 @@
+# Development profile configuration
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  swagger:
+    enabled: true
+
+logging:
+  level:
+    com.g2u.admin: DEBUG

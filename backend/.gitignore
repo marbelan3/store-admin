@@ -1,0 +1,21 @@
+build/
+.gradle/
+!gradle/wrapper/gradle-wrapper.properties
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Env
+.env
+
+# Uploads
+uploads/

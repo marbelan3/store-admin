@@ -1,0 +1,16 @@
+# Production profile configuration
+spring:
+  jpa:
+    show-sql: false
+
+app:
+  jwt:
+    # JWT secret MUST be provided via environment variable in production
+    secret: ${JWT_SECRET}
+  swagger:
+    enabled: false
+
+logging:
+  level:
+    root: WARN
+    com.g2u.admin: WARN

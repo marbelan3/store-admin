@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: 015-add-seo-fields-to-categories
+      author: g2u-admin
+      changes:
+        - addColumn:
+            tableName: categories
+            columns:
+              - column:
+                  name: meta_title
+                  type: varchar(200)
+                  constraints:
+                    nullable: true
+              - column:
+                  name: meta_description
+                  type: varchar(500)
+                  constraints:
+                    nullable: true

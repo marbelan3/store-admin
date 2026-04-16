@@ -1,0 +1,39 @@
+databaseChangeLog:
+  - changeSet:
+      id: 009-add-missing-timestamp-columns
+      author: g2u-team
+      changes:
+        - addColumn:
+            tableName: categories
+            columns:
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+        - addColumn:
+            tableName: product_variants
+            columns:
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+        - addColumn:
+            tableName: product_media
+            columns:
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+        - addColumn:
+            tableName: tags
+            columns:
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP

@@ -1,0 +1,12 @@
+databaseChangeLog:
+  - changeSet:
+      id: 014-add-low-stock-threshold-to-products
+      author: g2u-team
+      changes:
+        - addColumn:
+            tableName: products
+            columns:
+              - column:
+                  name: low_stock_threshold
+                  type: INT
+                  defaultValueNumeric: null

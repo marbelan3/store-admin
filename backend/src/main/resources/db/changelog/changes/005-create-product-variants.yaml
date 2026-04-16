@@ -1,0 +1,100 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-create-product-variants
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: product_variants
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sku
+                  type: VARCHAR(100)
+              - column:
+                  name: barcode
+                  type: VARCHAR(100)
+              - column:
+                  name: price
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: compare_at_price
+                  type: DECIMAL(12,2)
+              - column:
+                  name: cost_price
+                  type: DECIMAL(12,2)
+              - column:
+                  name: quantity
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: low_stock_threshold
+                  type: INT
+              - column:
+                  name: options
+                  type: JSON
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sort_order
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: is_active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: product_variants
+            baseColumnNames: tenant_id
+            referencedTableName: tenants
+            referencedColumnNames: id
+            constraintName: fk_product_variants_tenant
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: product_variants
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_product_variants_product
+            onDelete: CASCADE
+        - createIndex:
+            tableName: product_variants
+            indexName: idx_product_variants_product
+            columns:
+              - column:
+                  name: product_id
+        - createIndex:
+            tableName: product_variants
+            indexName: idx_product_variants_tenant
+            columns:
+              - column:
+                  name: tenant_id

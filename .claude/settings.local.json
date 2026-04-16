@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(backlog board:*)",
+      "Bash(backlog task:*)",
+      "Bash(backlog browser:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:2121)",
+      "Bash(docker exec g2u-mysql:*)",
+      "Bash(./gradlew compileJava)",
+      "Bash(./gradlew clean:*)",
+      "Bash(./gradlew test:*)",
+      "Bash(npm run:*)",
+      "Bash(./gradlew bootRun)",
+      "Bash(curl -s http://localhost:8080/api/health)"
+    ]
+  }
+}

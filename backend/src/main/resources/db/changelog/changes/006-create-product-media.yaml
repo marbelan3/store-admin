@@ -1,0 +1,72 @@
+databaseChangeLog:
+  - changeSet:
+      id: 006-create-product-media
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: product_media
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: url
+                  type: TEXT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: alt_text
+                  type: VARCHAR(300)
+              - column:
+                  name: media_type
+                  type: VARCHAR(20)
+                  defaultValue: image
+              - column:
+                  name: sort_order
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: is_primary
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: product_media
+            baseColumnNames: tenant_id
+            referencedTableName: tenants
+            referencedColumnNames: id
+            constraintName: fk_product_media_tenant
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: product_media
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_product_media_product
+            onDelete: CASCADE
+        - createIndex:
+            tableName: product_media
+            indexName: idx_product_media_product
+            columns:
+              - column:
+                  name: product_id
+              - column:
+                  name: sort_order

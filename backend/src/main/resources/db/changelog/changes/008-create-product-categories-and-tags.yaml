@@ -1,0 +1,72 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-create-product-categories
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: product_categories
+            columns:
+              - column:
+                  name: product_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: category_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: product_categories
+            columnNames: product_id, category_id
+            constraintName: pk_product_categories
+        - addForeignKeyConstraint:
+            baseTableName: product_categories
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_product_categories_product
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: product_categories
+            baseColumnNames: category_id
+            referencedTableName: categories
+            referencedColumnNames: id
+            constraintName: fk_product_categories_category
+            onDelete: CASCADE
+
+  - changeSet:
+      id: 008-create-product-tags
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: product_tags
+            columns:
+              - column:
+                  name: product_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: tag_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: product_tags
+            columnNames: product_id, tag_id
+            constraintName: pk_product_tags
+        - addForeignKeyConstraint:
+            baseTableName: product_tags
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_product_tags_product
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: product_tags
+            baseColumnNames: tag_id
+            referencedTableName: tags
+            referencedColumnNames: id
+            constraintName: fk_product_tags_tag
+            onDelete: CASCADE

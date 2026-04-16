@@ -1,0 +1,139 @@
+databaseChangeLog:
+  - changeSet:
+      id: 019-create-product-options
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: product_options
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: display_order
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: product_options
+            baseColumnNames: tenant_id
+            referencedTableName: tenants
+            referencedColumnNames: id
+            constraintName: fk_product_options_tenant
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: product_options
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_product_options_product
+            onDelete: CASCADE
+        - createIndex:
+            tableName: product_options
+            indexName: idx_product_options_product
+            columns:
+              - column:
+                  name: product_id
+        - createIndex:
+            tableName: product_options
+            indexName: idx_product_options_tenant
+            columns:
+              - column:
+                  name: tenant_id
+
+        - createTable:
+            tableName: product_option_values
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: option_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: value
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: display_order
+                  type: INT
+                  defaultValueNumeric: 0
+        - addForeignKeyConstraint:
+            baseTableName: product_option_values
+            baseColumnNames: option_id
+            referencedTableName: product_options
+            referencedColumnNames: id
+            constraintName: fk_option_values_option
+            onDelete: CASCADE
+
+        - createTable:
+            tableName: product_variant_option_values
+            columns:
+              - column:
+                  name: variant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: option_value_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+        - addPrimaryKey:
+            tableName: product_variant_option_values
+            columnNames: variant_id, option_value_id
+            constraintName: pk_variant_option_values
+        - addForeignKeyConstraint:
+            baseTableName: product_variant_option_values
+            baseColumnNames: variant_id
+            referencedTableName: product_variants
+            referencedColumnNames: id
+            constraintName: fk_variant_option_values_variant
+            onDelete: CASCADE
+        - addForeignKeyConstraint:
+            baseTableName: product_variant_option_values
+            baseColumnNames: option_value_id
+            referencedTableName: product_option_values
+            referencedColumnNames: id
+            constraintName: fk_variant_option_values_value
+            onDelete: CASCADE
+
+        - addUniqueConstraint:
+            tableName: product_variants
+            columnNames: sku, tenant_id
+            constraintName: uk_product_variants_sku_tenant
+        - createIndex:
+            tableName: product_variants
+            indexName: idx_product_variants_sku
+            columns:
+              - column:
+                  name: sku

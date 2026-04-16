@@ -1,0 +1,20 @@
+databaseChangeLog:
+  - changeSet:
+      id: 026-add-cj-fields-to-orders
+      author: g2u-team
+      changes:
+        - addColumn:
+            tableName: orders
+            columns:
+              - column:
+                  name: cj_order_id
+                  type: VARCHAR(100)
+              - column:
+                  name: cj_tracking_number
+                  type: VARCHAR(200)
+        - createIndex:
+            tableName: orders
+            indexName: idx_orders_cj_order_id
+            columns:
+              - column:
+                  name: cj_order_id

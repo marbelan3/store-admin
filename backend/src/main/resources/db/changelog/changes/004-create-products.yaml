@@ -1,0 +1,134 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-create-products
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: products
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(300)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: slug
+                  type: VARCHAR(300)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: description
+                  type: TEXT
+              - column:
+                  name: short_description
+                  type: VARCHAR(500)
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: draft
+                  constraints:
+                    nullable: false
+              - column:
+                  name: price
+                  type: DECIMAL(12,2)
+              - column:
+                  name: compare_at_price
+                  type: DECIMAL(12,2)
+              - column:
+                  name: currency
+                  type: VARCHAR(3)
+                  defaultValue: UAH
+              - column:
+                  name: sku
+                  type: VARCHAR(100)
+              - column:
+                  name: barcode
+                  type: VARCHAR(100)
+              - column:
+                  name: track_inventory
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+              - column:
+                  name: quantity
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: weight
+                  type: DECIMAL(8,2)
+              - column:
+                  name: weight_unit
+                  type: VARCHAR(5)
+                  defaultValue: kg
+              - column:
+                  name: meta_title
+                  type: VARCHAR(200)
+              - column:
+                  name: meta_description
+                  type: VARCHAR(500)
+              - column:
+                  name: attributes
+                  type: JSON
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: published_at
+                  type: TIMESTAMP
+              - column:
+                  name: deleted_at
+                  type: TIMESTAMP
+        - addForeignKeyConstraint:
+            baseTableName: products
+            baseColumnNames: tenant_id
+            referencedTableName: tenants
+            referencedColumnNames: id
+            constraintName: fk_products_tenant
+            onDelete: CASCADE
+        - createIndex:
+            tableName: products
+            indexName: idx_products_tenant_id
+            columns:
+              - column:
+                  name: tenant_id
+        - createIndex:
+            tableName: products
+            indexName: idx_products_tenant_status
+            columns:
+              - column:
+                  name: tenant_id
+              - column:
+                  name: status
+        - createIndex:
+            tableName: products
+            indexName: idx_products_deleted_at
+            columns:
+              - column:
+                  name: deleted_at
+        - addUniqueConstraint:
+            tableName: products
+            columnNames: tenant_id, slug
+            constraintName: uq_products_tenant_slug
+        - addUniqueConstraint:
+            tableName: products
+            columnNames: tenant_id, sku
+            constraintName: uq_products_tenant_sku

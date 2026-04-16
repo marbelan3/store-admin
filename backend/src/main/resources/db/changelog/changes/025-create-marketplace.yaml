@@ -1,0 +1,543 @@
+databaseChangeLog:
+  - changeSet:
+      id: 025-add-source-to-products
+      author: g2u-team
+      changes:
+        - addColumn:
+            tableName: products
+            columns:
+              - column:
+                  name: source
+                  type: VARCHAR(20)
+                  defaultValue: "OWN"
+                  constraints:
+                    nullable: false
+
+  - changeSet:
+      id: 025-create-marketplace-connections
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: marketplace_connections
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: provider
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: api_key
+                  type: VARCHAR(500)
+              - column:
+                  name: access_token
+                  type: VARCHAR(1000)
+              - column:
+                  name: token_expires_at
+                  type: TIMESTAMP
+              - column:
+                  name: default_warehouse_id
+                  type: VARCHAR(100)
+              - column:
+                  name: default_shipping_method
+                  type: VARCHAR(100)
+              - column:
+                  name: sync_enabled
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: "ACTIVE"
+                  constraints:
+                    nullable: false
+              - column:
+                  name: last_connected_at
+                  type: TIMESTAMP
+              - column:
+                  name: version
+                  type: BIGINT
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: marketplace_connections
+            indexName: idx_marketplace_connections_tenant
+            columns:
+              - column:
+                  name: tenant_id
+        - createIndex:
+            tableName: marketplace_connections
+            indexName: idx_marketplace_connections_tenant_provider
+            unique: true
+            columns:
+              - column:
+                  name: tenant_id
+              - column:
+                  name: provider
+
+  - changeSet:
+      id: 025-create-marketplace-products
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: marketplace_products
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: connection_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: external_product_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sync_status
+                  type: VARCHAR(20)
+                  defaultValue: "PENDING"
+                  constraints:
+                    nullable: false
+              - column:
+                  name: pricing_rule
+                  type: VARCHAR(20)
+                  defaultValue: "MARGIN"
+                  constraints:
+                    nullable: false
+              - column:
+                  name: target_margin_pct
+                  type: DECIMAL(5,2)
+              - column:
+                  name: fixed_markup_amount
+                  type: DECIMAL(12,2)
+              - column:
+                  name: min_margin_pct
+                  type: DECIMAL(5,2)
+              - column:
+                  name: current_margin_pct
+                  type: DECIMAL(5,2)
+              - column:
+                  name: margin_alert_triggered
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: excluded
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: low_stock_threshold
+                  type: INT
+              - column:
+                  name: stock_alert_sent
+                  type: BOOLEAN
+                  defaultValueBoolean: false
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: marketplace_products
+            baseColumnNames: connection_id
+            referencedTableName: marketplace_connections
+            referencedColumnNames: id
+            constraintName: fk_marketplace_products_connection
+        - addForeignKeyConstraint:
+            baseTableName: marketplace_products
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_marketplace_products_product
+        - createIndex:
+            tableName: marketplace_products
+            indexName: idx_marketplace_products_tenant
+            columns:
+              - column:
+                  name: tenant_id
+        - createIndex:
+            tableName: marketplace_products
+            indexName: idx_marketplace_products_external
+            unique: true
+            columns:
+              - column:
+                  name: tenant_id
+              - column:
+                  name: external_product_id
+        - createIndex:
+            tableName: marketplace_products
+            indexName: idx_marketplace_products_connection
+            columns:
+              - column:
+                  name: connection_id
+
+  - changeSet:
+      id: 025-create-marketplace-variant-mappings
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: marketplace_variant_mappings
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: marketplace_product_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: variant_id
+                  type: BINARY(16)
+              - column:
+                  name: cj_variant_id
+                  type: VARCHAR(100)
+              - column:
+                  name: cj_sku
+                  type: VARCHAR(100)
+              - column:
+                  name: previous_cj_sku
+                  type: VARCHAR(100)
+              - column:
+                  name: fallback_cj_sku
+                  type: VARCHAR(100)
+              - column:
+                  name: warehouse_id
+                  type: VARCHAR(100)
+              - column:
+                  name: warehouse_country
+                  type: VARCHAR(5)
+              - column:
+                  name: source_price
+                  type: DECIMAL(12,2)
+              - column:
+                  name: shipping_estimate
+                  type: DECIMAL(12,2)
+              - column:
+                  name: stock_quantity
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: stock_last_checked_at
+                  type: TIMESTAMP
+              - column:
+                  name: sku_status
+                  type: VARCHAR(20)
+                  defaultValue: "ACTIVE"
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: marketplace_variant_mappings
+            baseColumnNames: marketplace_product_id
+            referencedTableName: marketplace_products
+            referencedColumnNames: id
+            constraintName: fk_variant_mappings_marketplace_product
+        - addForeignKeyConstraint:
+            baseTableName: marketplace_variant_mappings
+            baseColumnNames: variant_id
+            referencedTableName: product_variants
+            referencedColumnNames: id
+            constraintName: fk_variant_mappings_variant
+        - createIndex:
+            tableName: marketplace_variant_mappings
+            indexName: idx_variant_mappings_tenant
+            columns:
+              - column:
+                  name: tenant_id
+        - createIndex:
+            tableName: marketplace_variant_mappings
+            indexName: idx_variant_mappings_marketplace_product
+            columns:
+              - column:
+                  name: marketplace_product_id
+        - createIndex:
+            tableName: marketplace_variant_mappings
+            indexName: idx_variant_mappings_cj_sku
+            columns:
+              - column:
+                  name: cj_sku
+
+  - changeSet:
+      id: 025-create-marketplace-price-history
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: marketplace_price_history
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: variant_mapping_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: price_type
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: old_price
+                  type: DECIMAL(12,2)
+              - column:
+                  name: new_price
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: old_margin_pct
+                  type: DECIMAL(5,2)
+              - column:
+                  name: new_margin_pct
+                  type: DECIMAL(5,2)
+              - column:
+                  name: detected_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: marketplace_price_history
+            baseColumnNames: variant_mapping_id
+            referencedTableName: marketplace_variant_mappings
+            referencedColumnNames: id
+            constraintName: fk_price_history_variant_mapping
+        - createIndex:
+            tableName: marketplace_price_history
+            indexName: idx_price_history_variant_mapping
+            columns:
+              - column:
+                  name: variant_mapping_id
+
+  - changeSet:
+      id: 025-create-marketplace-sync-logs
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: marketplace_sync_logs
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: connection_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: sync_type
+                  type: VARCHAR(30)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(20)
+                  defaultValue: "RUNNING"
+                  constraints:
+                    nullable: false
+              - column:
+                  name: items_checked
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: items_updated
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: errors_count
+                  type: INT
+                  defaultValueNumeric: 0
+              - column:
+                  name: error_details
+                  type: JSON
+              - column:
+                  name: started_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: completed_at
+                  type: TIMESTAMP
+        - addForeignKeyConstraint:
+            baseTableName: marketplace_sync_logs
+            baseColumnNames: connection_id
+            referencedTableName: marketplace_connections
+            referencedColumnNames: id
+            constraintName: fk_sync_logs_connection
+        - createIndex:
+            tableName: marketplace_sync_logs
+            indexName: idx_sync_logs_connection
+            columns:
+              - column:
+                  name: connection_id
+
+  - changeSet:
+      id: 025-create-marketplace-watchlist-items
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: marketplace_watchlist_items
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: connection_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: external_product_id
+                  type: VARCHAR(100)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: external_product_name
+                  type: VARCHAR(500)
+              - column:
+                  name: external_image_url
+                  type: VARCHAR(1000)
+              - column:
+                  name: external_price
+                  type: DECIMAL(12,2)
+              - column:
+                  name: external_stock_status
+                  type: VARCHAR(20)
+                  defaultValue: "IN_STOCK"
+              - column:
+                  name: last_checked_at
+                  type: TIMESTAMP
+              - column:
+                  name: added_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+        - addForeignKeyConstraint:
+            baseTableName: marketplace_watchlist_items
+            baseColumnNames: connection_id
+            referencedTableName: marketplace_connections
+            referencedColumnNames: id
+            constraintName: fk_watchlist_items_connection
+        - createIndex:
+            tableName: marketplace_watchlist_items
+            indexName: idx_watchlist_items_tenant
+            columns:
+              - column:
+                  name: tenant_id
+        - createIndex:
+            tableName: marketplace_watchlist_items
+            indexName: idx_watchlist_items_tenant_external
+            unique: true
+            columns:
+              - column:
+                  name: tenant_id
+              - column:
+                  name: external_product_id

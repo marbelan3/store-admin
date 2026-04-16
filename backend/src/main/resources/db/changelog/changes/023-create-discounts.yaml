@@ -1,0 +1,241 @@
+databaseChangeLog:
+  - changeSet:
+      id: 023-create-discounts
+      author: g2u-team
+      changes:
+        - createTable:
+            tableName: discounts
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: tenant_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: name
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: code
+                  type: VARCHAR(50)
+              - column:
+                  name: type
+                  type: VARCHAR(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: value
+                  type: DECIMAL(12,2)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: min_order_amount
+                  type: DECIMAL(12,2)
+              - column:
+                  name: usage_limit
+                  type: INT
+              - column:
+                  name: usage_count
+                  type: INT
+                  defaultValueNumeric: 0
+                  constraints:
+                    nullable: false
+              - column:
+                  name: starts_at
+                  type: TIMESTAMP
+              - column:
+                  name: ends_at
+                  type: TIMESTAMP
+              - column:
+                  name: active
+                  type: BOOLEAN
+                  defaultValueBoolean: true
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: discounts
+            baseColumnNames: tenant_id
+            referencedTableName: tenants
+            referencedColumnNames: id
+            constraintName: fk_discounts_tenant
+            onDelete: CASCADE
+
+        - createIndex:
+            tableName: discounts
+            indexName: idx_discounts_tenant
+            columns:
+              - column:
+                  name: tenant_id
+
+        - createIndex:
+            tableName: discounts
+            indexName: idx_discounts_code
+            columns:
+              - column:
+                  name: code
+
+        - createIndex:
+            tableName: discounts
+            indexName: idx_discounts_active
+            columns:
+              - column:
+                  name: tenant_id
+              - column:
+                  name: active
+
+        - addUniqueConstraint:
+            tableName: discounts
+            columnNames: code, tenant_id
+            constraintName: uq_discounts_code_tenant
+
+        - createTable:
+            tableName: discount_products
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: discount_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: product_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: discount_products
+            baseColumnNames: discount_id
+            referencedTableName: discounts
+            referencedColumnNames: id
+            constraintName: fk_discount_products_discount
+            onDelete: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: discount_products
+            baseColumnNames: product_id
+            referencedTableName: products
+            referencedColumnNames: id
+            constraintName: fk_discount_products_product
+            onDelete: CASCADE
+
+        - addUniqueConstraint:
+            tableName: discount_products
+            columnNames: discount_id, product_id
+            constraintName: uq_discount_products
+
+        - createIndex:
+            tableName: discount_products
+            indexName: idx_discount_products_discount
+            columns:
+              - column:
+                  name: discount_id
+
+        - createTable:
+            tableName: discount_categories
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: discount_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: category_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: BIGINT
+                  defaultValueNumeric: 0
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: TIMESTAMP
+                  defaultValueComputed: CURRENT_TIMESTAMP
+                  constraints:
+                    nullable: false
+
+        - addForeignKeyConstraint:
+            baseTableName: discount_categories
+            baseColumnNames: discount_id
+            referencedTableName: discounts
+            referencedColumnNames: id
+            constraintName: fk_discount_categories_discount
+            onDelete: CASCADE
+
+        - addForeignKeyConstraint:
+            baseTableName: discount_categories
+            baseColumnNames: category_id
+            referencedTableName: categories
+            referencedColumnNames: id
+            constraintName: fk_discount_categories_category
+            onDelete: CASCADE
+
+        - addUniqueConstraint:
+            tableName: discount_categories
+            columnNames: discount_id, category_id
+            constraintName: uq_discount_categories
+
+        - createIndex:
+            tableName: discount_categories
+            indexName: idx_discount_categories_discount
+            columns:
+              - column:
+                  name: discount_id
