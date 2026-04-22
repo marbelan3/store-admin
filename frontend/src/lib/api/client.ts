@@ -92,8 +92,10 @@ class ApiClient {
 			throw err;
 		}
 
-		if (res.status === 204) return undefined as T;
-		return res.json();
+		if (res.status === 204 || res.status === 202) return undefined as T;
+		const text = await res.text();
+		if (!text) return undefined as T;
+		return JSON.parse(text);
 	}
 
 	get<T>(path: string, params?: Record<string, string>) {

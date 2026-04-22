@@ -1,3 +1,40 @@
+# G2U Store Admin
+
+Multi-tenant admin panel for marketplace/e-commerce with CJ Dropshipping integration.
+
+## Tech Stack
+
+- **Backend**: Java 17, Spring Boot 3.3.5, Gradle (Kotlin DSL), MySQL 8.0, Liquibase, MapStruct, Lombok
+- **Frontend**: SvelteKit 2, **Svelte 5 runes** (`$state`, `$derived`, `$effect` — NOT legacy Svelte 4 syntax), TypeScript, Tailwind CSS 4, bits-ui + shadcn-svelte
+
+## Running
+
+```bash
+docker compose up -d                    # MySQL + Adminer
+cd backend && ./gradlew bootRun         # :8080
+cd frontend && npm run dev              # :5173
+```
+
+## Multi-tenancy (critical)
+
+- All domain entities extend `TenantAwareEntity` — adds `tenantId` field
+- **Every** repository query and service method MUST filter by `tenantId`
+- `TenantContext` (ThreadLocal) holds current tenant extracted from JWT
+- Never return data across tenants
+
+## CJ Dropshipping API quirks
+
+These are not obvious from docs and were discovered through real API testing:
+
+- Auth body is `{"apiKey": "..."}` (NOT email/password)
+- Token header: `CJ-Access-Token` (not `Authorization`)
+- `sellPrice` on list endpoint is a **range string** like `"0.31 -- 0.32"`, not a number — must parse first value
+- `productImage` on detail endpoint is a **JSON array string** `["url1","url2"]`, not a plain URL
+- Product description is in `remark` field, not `description`
+- Stock: `/product/stock/queryByVid?vid=` returns array of warehouses, sum `storageNum` for total
+- Variant names use `variantNameEn`, prices use `variantSellPrice`
+
+---
 
 <!-- BACKLOG.MD GUIDELINES START -->
 # Instructions for the usage of Backlog.md CLI Tool

@@ -153,6 +153,7 @@
 			productId={product.id}
 			bind:variants={productVariants}
 			options={productOptions}
+			currency={product.currency}
 			readonly={!auth.canEdit}
 		/>
 

@@ -17,8 +17,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 @Component
 public class CjDropshippingAdapter implements MarketplaceAdapter {
@@ -26,8 +24,10 @@ public class CjDropshippingAdapter implements MarketplaceAdapter {
     private static final Logger log = LoggerFactory.getLogger(CjDropshippingAdapter.class);
     private static final String BASE_URL = "https://developers.cjdropshipping.com/api2.0/v1";
 
-    // Rate limiter: 1 request per second (conservative, CJ allows 1-6 depending on plan)
-    private final Semaphore rateLimiter = new Semaphore(1);
+    // Minimum interval between CJ API calls (ms). CJ allows 1-6 req/sec depending on plan.
+    private static final long MIN_REQUEST_INTERVAL_MS = 1200;
+    private volatile long lastRequestTime = 0;
+    private final Object rateLock = new Object();
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
@@ -37,10 +37,10 @@ public class CjDropshippingAdapter implements MarketplaceAdapter {
     }
 
     @Override
-    public String authenticate(String email, String apiKey) {
+    public String authenticate(String apiKey) {
         try {
             acquireRateLimit();
-            var body = Map.of("email", email, "password", apiKey);
+            var body = Map.of("apiKey", apiKey);
             var response = restTemplate.postForEntity(
                     BASE_URL + "/authentication/getAccessToken",
                     body,
@@ -68,6 +68,56 @@ public class CjDropshippingAdapter implements MarketplaceAdapter {
                 }
             }
             return products;
+        } catch (HttpClientErrorException e) {
+            throw mapHttpError(e);
+        }
+    }
+
+    @Override
+    public List<CjProduct> listProductsByCategory(String accessToken, String categoryId, int page, int pageSize) {
+        try {
+            acquireRateLimit();
+            String url = BASE_URL + "/product/list?categoryId=" + categoryId
+                    + "&pageNum=" + page + "&pageSize=" + pageSize;
+            var response = exchange(accessToken, url, HttpMethod.GET, null);
+            var node = extractData(response);
+            var list = node.path("list");
+            List<CjProduct> products = new ArrayList<>();
+            if (list.isArray()) {
+                for (JsonNode item : list) {
+                    products.add(mapProduct(item));
+                }
+            }
+            return products;
+        } catch (HttpClientErrorException e) {
+            throw mapHttpError(e);
+        }
+    }
+
+    @Override
+    public List<CjCategory> getCategories(String accessToken) {
+        try {
+            acquireRateLimit();
+            String url = BASE_URL + "/product/getCategory";
+            var response = exchange(accessToken, url, HttpMethod.GET, null);
+            var node = extractData(response);
+            List<CjCategory> categories = new ArrayList<>();
+            if (node.isArray()) {
+                for (JsonNode first : node) {
+                    List<CjSubCategory> subs = new ArrayList<>();
+                    for (JsonNode second : first.path("categoryFirstList")) {
+                        List<CjLeafCategory> leaves = new ArrayList<>();
+                        for (JsonNode leaf : second.path("categorySecondList")) {
+                            leaves.add(new CjLeafCategory(
+                                    leaf.path("categoryId").asText(),
+                                    leaf.path("categoryName").asText()));
+                        }
+                        subs.add(new CjSubCategory(second.path("categorySecondName").asText(), leaves));
+                    }
+                    categories.add(new CjCategory(first.path("categoryFirstName").asText(), subs));
+                }
+            }
+            return categories;
         } catch (HttpClientErrorException e) {
             throw mapHttpError(e);
         }
@@ -108,10 +158,17 @@ public class CjDropshippingAdapter implements MarketplaceAdapter {
     public int getStock(String accessToken, String cjSku) {
         try {
             acquireRateLimit();
-            String url = BASE_URL + "/product/stock?vid=" + cjSku;
+            String url = BASE_URL + "/product/stock/queryByVid?vid=" + cjSku;
             var response = exchange(accessToken, url, HttpMethod.GET, null);
             var node = extractData(response);
-            return node.path("stockQuantity").asInt(0);
+            // Response is an array of warehouse stocks; sum up storageNum across all warehouses
+            int total = 0;
+            if (node.isArray()) {
+                for (JsonNode warehouse : node) {
+                    total += warehouse.path("storageNum").asInt(0);
+                }
+            }
+            return total;
         } catch (HttpClientErrorException e) {
             throw mapHttpError(e);
         }
@@ -143,22 +200,26 @@ public class CjDropshippingAdapter implements MarketplaceAdapter {
         try {
             acquireRateLimit();
             var items = orderRequest.items().stream()
-                    .map(i -> Map.of(
-                            "sku", i.sku(),
-                            "quantity", i.quantity(),
-                            "shippingMethod", i.shippingMethod() != null ? i.shippingMethod() : ""
-                    ))
+                    .map(i -> {
+                        var m = new java.util.HashMap<String, Object>();
+                        m.put("vid", i.sku());
+                        m.put("quantity", i.quantity());
+                        if (i.shippingMethod() != null && !i.shippingMethod().isEmpty()) {
+                            m.put("logisticName", i.shippingMethod());
+                        }
+                        return m;
+                    })
                     .toList();
-            var body = Map.of(
-                    "shippingCountry", orderRequest.shippingCountry(),
-                    "shippingProvince", orderRequest.shippingProvince(),
-                    "shippingCity", orderRequest.shippingCity(),
-                    "shippingAddress", orderRequest.shippingAddress(),
-                    "shippingZip", orderRequest.shippingZip(),
-                    "shippingCustomerName", orderRequest.shippingCustomerName(),
-                    "shippingPhone", orderRequest.shippingPhone(),
-                    "orderItems", items
-            );
+            var body = new java.util.HashMap<String, Object>();
+            body.put("fromCountryCode", orderRequest.fromCountryCode() != null ? orderRequest.fromCountryCode() : "CN");
+            body.put("shippingCountryCode", orderRequest.shippingCountry());
+            body.put("shippingProvince", orderRequest.shippingProvince());
+            body.put("shippingCity", orderRequest.shippingCity());
+            body.put("shippingAddress", orderRequest.shippingAddress());
+            body.put("shippingZip", orderRequest.shippingZip());
+            body.put("shippingCustomerName", orderRequest.shippingCustomerName());
+            body.put("shippingPhone", orderRequest.shippingPhone());
+            body.put("products", items);
             var response = exchange(accessToken, BASE_URL + "/shopping/order/createOrder", HttpMethod.POST, body);
             var node = extractData(response);
             return new CjOrderResult(
@@ -207,12 +268,33 @@ public class CjDropshippingAdapter implements MarketplaceAdapter {
 
     // --- Internal helpers ---
 
+    private static final int MAX_RETRIES = 2;
+    private static final long RETRY_BACKOFF_MS = 3000;
+
     private ResponseEntity<JsonNode> exchange(String accessToken, String url, HttpMethod method, Object body) {
         HttpHeaders headers = new HttpHeaders();
         headers.set("CJ-Access-Token", accessToken);
         headers.set("Content-Type", "application/json");
         HttpEntity<Object> entity = new HttpEntity<>(body, headers);
-        return restTemplate.exchange(url, method, entity, JsonNode.class);
+
+        for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                return restTemplate.exchange(url, method, entity, JsonNode.class);
+            } catch (HttpClientErrorException e) {
+                if (e.getStatusCode().value() == 429 && attempt < MAX_RETRIES) {
+                    log.warn("CJ API 429, retry {}/{} after {}ms", attempt + 1, MAX_RETRIES, RETRY_BACKOFF_MS);
+                    try {
+                        Thread.sleep(RETRY_BACKOFF_MS * (attempt + 1));
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new CjApiException("Retry interrupted", ie);
+                    }
+                    continue;
+                }
+                throw e;
+            }
+        }
+        throw new CjApiException("Unexpected: retries exhausted");
     }
 
     private JsonNode extractData(ResponseEntity<JsonNode> response) {
@@ -233,22 +315,18 @@ public class CjDropshippingAdapter implements MarketplaceAdapter {
     }
 
     private void acquireRateLimit() {
-        try {
-            if (!rateLimiter.tryAcquire(5, TimeUnit.SECONDS)) {
-                throw new CjRateLimitException();
-            }
-            // Release after 1 second to enforce rate limit
-            new Thread(() -> {
+        synchronized (rateLock) {
+            long now = System.currentTimeMillis();
+            long elapsed = now - lastRequestTime;
+            if (elapsed < MIN_REQUEST_INTERVAL_MS) {
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(MIN_REQUEST_INTERVAL_MS - elapsed);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
+                    throw new CjApiException("Rate limit wait interrupted", e);
                 }
-                rateLimiter.release();
-            }).start();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new CjApiException("Rate limit acquisition interrupted", e);
+            }
+            lastRequestTime = System.currentTimeMillis();
         }
     }
 
@@ -260,25 +338,65 @@ public class CjDropshippingAdapter implements MarketplaceAdapter {
                 variants.add(mapVariant(v));
             }
         }
+        // CJ returns bigImage (single URL) on detail, productImage (single URL on list, JSON array on detail)
+        String image = node.path("bigImage").asText("");
+        if (image.isEmpty()) {
+            String rawImage = node.path("productImage").asText("");
+            // On detail endpoint productImage is a JSON array string — extract first URL
+            if (rawImage.startsWith("[")) {
+                try {
+                    JsonNode arr = objectMapper.readTree(rawImage);
+                    if (arr.isArray() && !arr.isEmpty()) {
+                        image = arr.get(0).asText();
+                    }
+                } catch (Exception e) {
+                    image = rawImage;
+                }
+            } else {
+                image = rawImage;
+            }
+        }
+        // Description is in "remark" field (HTML content)
+        String description = node.path("description").asText("");
+        if (description.isEmpty()) {
+            description = node.path("remark").asText("");
+        }
         return new CjProduct(
                 node.path("pid").asText(),
                 node.path("productNameEn").asText(),
-                node.path("productImage").asText(),
-                node.path("description").asText(""),
+                image,
+                description,
                 node.path("categoryName").asText(""),
-                new BigDecimal(node.path("sellPrice").asText("0")),
+                parseSellPrice(node.path("sellPrice").asText("0")),
                 variants
         );
     }
 
+    /**
+     * CJ list endpoint returns sellPrice as a range like "0.31 -- 0.32",
+     * while detail endpoint returns a plain number. Handle both.
+     */
+    private BigDecimal parseSellPrice(String raw) {
+        if (raw == null || raw.isBlank()) return BigDecimal.ZERO;
+        // Take the first number from a range like "0.31 -- 0.32"
+        String first = raw.split("\\s*--\\s*")[0].trim();
+        try {
+            return new BigDecimal(first);
+        } catch (NumberFormatException e) {
+            return BigDecimal.ZERO;
+        }
+    }
+
     private CjVariant mapVariant(JsonNode v) {
+        // Stock is not on variant directly; use inventoryNum if present, otherwise 0 (fetched separately via getStock)
+        int stock = v.path("inventoryNum").asInt(0);
         return new CjVariant(
                 v.path("vid").asText(),
                 v.path("variantNameEn").asText(),
                 v.path("variantSku").asText(),
-                new BigDecimal(v.path("variantSellPrice").asText("0")),
+                parseSellPrice(v.path("variantSellPrice").asText("0")),
                 v.path("variantImage").asText(""),
-                v.path("variantVolume").asInt(0)
+                stock
         );
     }
 

@@ -40,7 +40,6 @@
 
 	// Create form
 	let newProvider = $state('CJ_DROPSHIPPING');
-	let newEmail = $state('');
 	let newApiKey = $state('');
 	let newWarehouseId = $state('');
 	let newShippingMethod = $state('');
@@ -48,7 +47,6 @@
 
 	// Edit form
 	let editId = $state('');
-	let editEmail = $state('');
 	let editApiKey = $state('');
 	let editSyncEnabled = $state(true);
 	let editWarehouseId = $state('');
@@ -78,19 +76,17 @@
 	}
 
 	async function handleCreate() {
-		if (!newEmail.trim() || !newApiKey.trim()) return;
+		if (!newApiKey.trim()) return;
 		saving = true;
 		try {
 			await createConnection({
 				provider: newProvider,
-				email: newEmail,
 				apiKey: newApiKey,
 				defaultWarehouseId: newWarehouseId || undefined,
 				defaultShippingMethod: newShippingMethod || undefined
 			});
 			toast.success('Connection created');
 			createDialogOpen = false;
-			newEmail = '';
 			newApiKey = '';
 			newWarehouseId = '';
 			newShippingMethod = '';
@@ -104,7 +100,6 @@
 
 	function openEdit(conn: MarketplaceConnection) {
 		editId = conn.id;
-		editEmail = conn.email || '';
 		editApiKey = '';
 		editSyncEnabled = conn.syncEnabled;
 		editWarehouseId = conn.defaultWarehouseId || '';
@@ -116,7 +111,6 @@
 		editSaving = true;
 		try {
 			await updateConnection(editId, {
-				email: editEmail || undefined,
 				apiKey: editApiKey || undefined,
 				syncEnabled: editSyncEnabled,
 				defaultWarehouseId: editWarehouseId || undefined,
@@ -244,10 +238,6 @@
 							</Select.Root>
 						</div>
 						<div class="space-y-2">
-							<Label for="email">Email *</Label>
-							<Input id="email" type="email" bind:value={newEmail} placeholder="Your CJ account email" />
-						</div>
-						<div class="space-y-2">
 							<Label for="apiKey">API Key *</Label>
 							<Input id="apiKey" type="password" bind:value={newApiKey} placeholder="Your CJ API key" />
 						</div>
@@ -262,7 +252,7 @@
 					</div>
 					<Dialog.Footer>
 						<Button variant="outline" onclick={() => (createDialogOpen = false)}>Cancel</Button>
-						<Button onclick={handleCreate} disabled={saving || !newEmail.trim() || !newApiKey.trim()}>
+						<Button onclick={handleCreate} disabled={saving || !newApiKey.trim()}>
 							{saving ? 'Creating...' : 'Create'}
 						</Button>
 					</Dialog.Footer>
@@ -368,10 +358,6 @@
 			<Dialog.Title>Edit Connection</Dialog.Title>
 		</Dialog.Header>
 		<div class="space-y-4 py-4">
-			<div class="space-y-2">
-				<Label for="editEmail">Email</Label>
-				<Input id="editEmail" type="email" bind:value={editEmail} placeholder="CJ account email" />
-			</div>
 			<div class="space-y-2">
 				<Label for="editApiKey">API Key</Label>
 				<Input id="editApiKey" type="password" bind:value={editApiKey} placeholder="Leave empty to keep current" />

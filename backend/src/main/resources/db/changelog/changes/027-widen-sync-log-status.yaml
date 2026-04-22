@@ -1,0 +1,9 @@
+databaseChangeLog:
+  - changeSet:
+      id: 027-widen-sync-log-status
+      author: g2u-team
+      changes:
+        - modifyDataType:
+            tableName: marketplace_sync_logs
+            columnName: status
+            newDataType: VARCHAR(30)

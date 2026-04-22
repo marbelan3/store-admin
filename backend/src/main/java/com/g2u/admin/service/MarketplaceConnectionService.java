@@ -58,11 +58,10 @@ public class MarketplaceConnectionService {
                 });
 
         // Authenticate to validate API key and get token
-        String accessToken = marketplaceAdapter.authenticate(request.email(), request.apiKey());
+        String accessToken = marketplaceAdapter.authenticate(request.apiKey());
 
         MarketplaceConnection connection = MarketplaceConnection.builder()
                 .provider(provider)
-                .email(request.email())
                 .apiKey(request.apiKey())
                 .accessToken(accessToken)
                 .tokenExpiresAt(Instant.now().plus(TOKEN_TTL_DAYS, ChronoUnit.DAYS))
@@ -80,13 +79,9 @@ public class MarketplaceConnectionService {
     public MarketplaceConnectionDto updateConnection(UUID tenantId, UUID id, UpdateMarketplaceConnectionRequest request) {
         MarketplaceConnection connection = findConnection(tenantId, id);
 
-        if (request.email() != null && !request.email().isBlank()) {
-            connection.setEmail(request.email());
-        }
         if (request.apiKey() != null && !request.apiKey().isBlank()) {
             // Re-authenticate with new API key
-            String email = connection.getEmail();
-            String accessToken = marketplaceAdapter.authenticate(email, request.apiKey());
+            String accessToken = marketplaceAdapter.authenticate(request.apiKey());
             connection.setApiKey(request.apiKey());
             connection.setAccessToken(accessToken);
             connection.setTokenExpiresAt(Instant.now().plus(TOKEN_TTL_DAYS, ChronoUnit.DAYS));
@@ -144,7 +139,7 @@ public class MarketplaceConnectionService {
         }
         // Refresh token
         log.info("Refreshing CJ access token for connection {}", connection.getId());
-        String newToken = marketplaceAdapter.authenticate(connection.getEmail(), connection.getApiKey());
+        String newToken = marketplaceAdapter.authenticate(connection.getApiKey());
         connection.setAccessToken(newToken);
         connection.setTokenExpiresAt(Instant.now().plus(TOKEN_TTL_DAYS, ChronoUnit.DAYS));
         connection.setStatus(ConnectionStatus.ACTIVE);
@@ -162,7 +157,6 @@ public class MarketplaceConnectionService {
         return new MarketplaceConnectionDto(
                 c.getId(),
                 c.getProvider().name(),
-                c.getEmail(),
                 c.getStatus().name(),
                 c.isSyncEnabled(),
                 c.getDefaultWarehouseId(),

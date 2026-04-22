@@ -6,7 +6,6 @@ import java.util.UUID;
 public record MarketplaceConnectionDto(
         UUID id,
         String provider,
-        String email,
         String status,
         boolean syncEnabled,
         String defaultWarehouseId,

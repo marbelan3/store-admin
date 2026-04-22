@@ -45,7 +45,7 @@ public class MarketplaceSyncLog {
     @Column(name = "sync_type", nullable = false, length = 30)
     private SyncType syncType;
 
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 30)
     @Builder.Default
     private String status = "RUNNING";
 

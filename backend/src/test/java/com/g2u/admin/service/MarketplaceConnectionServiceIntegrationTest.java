@@ -63,7 +63,7 @@ class MarketplaceConnectionServiceIntegrationTest {
     @Test
     void createConnection_shouldAuthenticateAndPersist() {
         var request = new CreateMarketplaceConnectionRequest(
-                "CJ_DROPSHIPPING", "test@test.com", "test-api-key", "CN", "standard");
+                "CJ_DROPSHIPPING", "test-api-key", "CN", "standard");
 
         MarketplaceConnectionDto dto = connectionService.createConnection(tenantAId, request);
 
@@ -78,11 +78,11 @@ class MarketplaceConnectionServiceIntegrationTest {
     @Test
     void createConnection_duplicate_shouldFail() {
         connectionService.createConnection(tenantAId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "a@test.com", "key1", null, null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "key1", null, null));
 
         assertThrows(DuplicateResourceException.class, () ->
                 connectionService.createConnection(tenantAId,
-                        new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "b@test.com", "key2", null, null)));
+                        new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "key2", null, null)));
     }
 
     @Test
@@ -91,15 +91,15 @@ class MarketplaceConnectionServiceIntegrationTest {
 
         assertThrows(CjAuthException.class, () ->
                 connectionService.createConnection(tenantAId,
-                        new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "bad@test.com", "bad-key", null, null)));
+                        new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "bad-key", null, null)));
     }
 
     @Test
     void getConnections_shouldReturnOnlyTenantConnections() {
         connectionService.createConnection(tenantAId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "a@test.com", "key-a", null, null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "key-a", null, null));
         connectionService.createConnection(tenantBId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "b@test.com", "key-b", null, null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "key-b", null, null));
 
         List<MarketplaceConnectionDto> connectionsA = connectionService.getConnections(tenantAId);
         assertEquals(1, connectionsA.size());
@@ -113,10 +113,10 @@ class MarketplaceConnectionServiceIntegrationTest {
     @Test
     void updateConnection_shouldUpdateFields() {
         MarketplaceConnectionDto created = connectionService.createConnection(tenantAId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "test@test.com", "key", null, null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "key", null, null));
 
         MarketplaceConnectionDto updated = connectionService.updateConnection(tenantAId, created.id(),
-                new UpdateMarketplaceConnectionRequest(null, null, false, "US", "express"));
+                new UpdateMarketplaceConnectionRequest(null, false, "US", "express"));
 
         assertFalse(updated.syncEnabled());
         assertEquals("US", updated.defaultWarehouseId());
@@ -126,7 +126,7 @@ class MarketplaceConnectionServiceIntegrationTest {
     @Test
     void deleteConnection_shouldRemove() {
         MarketplaceConnectionDto created = connectionService.createConnection(tenantAId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "test@test.com", "key", null, null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "key", null, null));
 
         connectionService.deleteConnection(tenantAId, created.id());
 
@@ -137,7 +137,7 @@ class MarketplaceConnectionServiceIntegrationTest {
     @Test
     void testConnection_success_shouldSetActive() {
         MarketplaceConnectionDto created = connectionService.createConnection(tenantAId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "test@test.com", "key", null, null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "key", null, null));
 
         MarketplaceConnectionDto tested = connectionService.testConnection(tenantAId, created.id());
         assertEquals("ACTIVE", tested.status());
@@ -146,7 +146,7 @@ class MarketplaceConnectionServiceIntegrationTest {
     @Test
     void testConnection_authFailure_shouldSetTokenExpired() {
         MarketplaceConnectionDto created = connectionService.createConnection(tenantAId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "test@test.com", "key", null, null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "key", null, null));
 
         TestMarketplaceConfig.FAIL_SEARCH.set(true);
 
@@ -157,7 +157,7 @@ class MarketplaceConnectionServiceIntegrationTest {
     @Test
     void tenantIsolation_connectionFromTenantANotVisibleToTenantB() {
         MarketplaceConnectionDto created = connectionService.createConnection(tenantAId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "test@test.com", "key", null, null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "key", null, null));
 
         assertThrows(ResourceNotFoundException.class, () ->
                 connectionService.getConnection(tenantBId, created.id()));

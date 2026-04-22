@@ -1,5 +1,6 @@
 package com.g2u.admin.web.dto;
 
+import java.time.Instant;
 import java.util.UUID;
 
 public record InventoryItemDto(
@@ -10,6 +11,7 @@ public record InventoryItemDto(
         String sku,
         Integer quantity,
         Integer lowStockThreshold,
-        boolean trackInventory
+        boolean trackInventory,
+        Instant lastSyncedAt
 ) {
 }

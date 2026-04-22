@@ -363,7 +363,7 @@
 		</aside>
 
 		<!-- Main content -->
-		<main class="flex-1 overflow-auto pt-14 md:pt-0">
+		<main class="flex-1 min-w-0 overflow-auto pt-14 md:pt-0">
 			<div class="p-4 md:p-6">
 				{@render children()}
 			</div>

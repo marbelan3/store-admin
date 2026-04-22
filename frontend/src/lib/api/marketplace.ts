@@ -3,6 +3,7 @@ import type {
 	MarketplaceConnection,
 	CreateConnectionRequest,
 	UpdateConnectionRequest,
+	CjCategory,
 	CjCatalogProduct,
 	CjProductDetail,
 	MarketplaceProduct,
@@ -43,10 +44,23 @@ export function testConnection(id: string) {
 
 // --- CJ Catalog ---
 
+export function getCjCategories(connectionId: string) {
+	return api.get<CjCategory[]>('/api/marketplace/cj/categories', { connectionId });
+}
+
 export function searchCatalog(connectionId: string, q: string, page = 1, pageSize = 20) {
 	return api.get<CjCatalogProduct[]>('/api/marketplace/cj/catalog', {
 		connectionId,
 		q,
+		page: String(page),
+		pageSize: String(pageSize)
+	});
+}
+
+export function listByCategory(connectionId: string, categoryId: string, page = 1, pageSize = 20) {
+	return api.get<CjCatalogProduct[]>('/api/marketplace/cj/catalog/category', {
+		connectionId,
+		categoryId,
 		page: String(page),
 		pageSize: String(pageSize)
 	});

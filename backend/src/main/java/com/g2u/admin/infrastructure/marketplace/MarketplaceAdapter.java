@@ -11,16 +11,25 @@ public interface MarketplaceAdapter {
 
     /**
      * Authenticate and obtain an access token.
-     * @param email the account email for the marketplace
-     * @param apiKey the API key / password for the marketplace
+     * @param apiKey the API key for the marketplace
      * @return access token string
      */
-    String authenticate(String email, String apiKey);
+    String authenticate(String apiKey);
 
     /**
      * Search products in the marketplace catalog.
      */
     List<CjProduct> searchProducts(String accessToken, String query, int page, int pageSize);
+
+    /**
+     * Browse products by category (no keyword required).
+     */
+    List<CjProduct> listProductsByCategory(String accessToken, String categoryId, int page, int pageSize);
+
+    /**
+     * Get the full category tree.
+     */
+    List<CjCategory> getCategories(String accessToken);
 
     /**
      * Get detailed product info by external product ID.
@@ -78,7 +87,23 @@ public interface MarketplaceAdapter {
             int stock
     ) {}
 
+    record CjCategory(
+            String name,
+            List<CjSubCategory> subCategories
+    ) {}
+
+    record CjSubCategory(
+            String name,
+            List<CjLeafCategory> categories
+    ) {}
+
+    record CjLeafCategory(
+            String categoryId,
+            String categoryName
+    ) {}
+
     record CjOrderRequest(
+            String fromCountryCode,
             String shippingCountry,
             String shippingProvince,
             String shippingCity,

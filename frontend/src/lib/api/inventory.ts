@@ -10,6 +10,7 @@ export interface InventoryItem {
 	quantity: number;
 	lowStockThreshold: number | null;
 	trackInventory: boolean;
+	lastSyncedAt: string | null;
 }
 
 export interface InventoryFilters {

@@ -79,7 +79,7 @@ class MarketplaceSyncServiceIntegrationTest {
         tenantId = tenant.getId();
 
         MarketplaceConnectionDto conn = connectionService.createConnection(tenantId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "sync@test.com", "sync-key", "CN", null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "sync-key", "CN", null));
         connectionId = conn.id();
         connection = connectionRepository.findByTenantIdAndId(tenantId, connectionId).orElseThrow();
     }

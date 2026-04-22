@@ -6,6 +6,7 @@ import com.g2u.admin.domain.marketplace.MarketplacePriceHistory;
 import com.g2u.admin.domain.marketplace.MarketplacePriceHistoryRepository;
 import com.g2u.admin.service.MarketplaceImportService;
 import com.g2u.admin.web.dto.CjCatalogProductDto;
+import com.g2u.admin.web.dto.CjCategoryDto;
 import com.g2u.admin.web.dto.CjProductDetailDto;
 import com.g2u.admin.web.dto.ImportProductRequest;
 import com.g2u.admin.web.dto.MarketplaceProductDto;
@@ -52,6 +53,23 @@ public class MarketplaceCatalogController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int pageSize) {
         return importService.searchCatalog(principal.tenantId(), connectionId, q, page, pageSize);
+    }
+
+    @GetMapping("/cj/categories")
+    public List<CjCategoryDto> getCategories(
+            @CurrentUser UserPrincipal principal,
+            @RequestParam UUID connectionId) {
+        return importService.getCategories(principal.tenantId(), connectionId);
+    }
+
+    @GetMapping("/cj/catalog/category")
+    public List<CjCatalogProductDto> listByCategory(
+            @CurrentUser UserPrincipal principal,
+            @RequestParam UUID connectionId,
+            @RequestParam String categoryId,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int pageSize) {
+        return importService.listByCategory(principal.tenantId(), connectionId, categoryId, page, pageSize);
     }
 
     @GetMapping("/cj/products/{pid}")

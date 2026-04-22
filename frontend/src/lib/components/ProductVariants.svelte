@@ -20,6 +20,7 @@
 		productId: string;
 		variants: ProductVariantDetail[];
 		options: ProductOption[];
+		currency?: string;
 		readonly?: boolean;
 		onVariantsChange?: (variants: ProductVariantDetail[]) => void;
 	}
@@ -28,6 +29,7 @@
 		productId,
 		variants = $bindable([]),
 		options,
+		currency = '',
 		readonly = false,
 		onVariantsChange
 	}: Props = $props();
@@ -356,7 +358,7 @@
 
 			<div class="grid grid-cols-2 gap-4">
 				<div class="space-y-2">
-					<Label>Price (UAH) <span class="text-destructive">*</span></Label>
+					<Label>Price{currency ? ` (${currency})` : ''} <span class="text-destructive">*</span></Label>
 					<Input type="number" step="0.01" bind:value={addPrice} placeholder="0.00" />
 				</div>
 				<div class="space-y-2">
@@ -388,7 +390,7 @@
 		</Dialog.Header>
 		<div class="space-y-4 py-4">
 			<div class="space-y-2">
-				<Label>Set Price (UAH)</Label>
+				<Label>Set Price{currency ? ` (${currency})` : ''}</Label>
 				<Input type="number" step="0.01" bind:value={bulkPrice} placeholder="Leave empty to keep current" />
 			</div>
 			<div class="space-y-2">

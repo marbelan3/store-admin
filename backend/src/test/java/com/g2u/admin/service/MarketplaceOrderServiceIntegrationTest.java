@@ -61,7 +61,7 @@ class MarketplaceOrderServiceIntegrationTest {
         tenantId = tenant.getId();
 
         MarketplaceConnectionDto conn = connectionService.createConnection(tenantId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "order@test.com", "order-key", "CN", "standard"));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "order-key", "CN", "standard"));
         connectionId = conn.id();
     }
 

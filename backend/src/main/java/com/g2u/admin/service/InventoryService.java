@@ -1,5 +1,7 @@
 package com.g2u.admin.service;
 
+import com.g2u.admin.domain.marketplace.MarketplaceVariantMapping;
+import com.g2u.admin.domain.marketplace.MarketplaceVariantMappingRepository;
 import com.g2u.admin.domain.notification.NotificationType;
 import com.g2u.admin.domain.product.Product;
 import com.g2u.admin.domain.product.ProductRepository;
@@ -15,9 +17,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -30,15 +34,18 @@ public class InventoryService {
 
     private final ProductRepository productRepository;
     private final ProductVariantRepository productVariantRepository;
+    private final MarketplaceVariantMappingRepository variantMappingRepository;
     private final NotificationService notificationService;
     private final WebhookService webhookService;
 
     public InventoryService(ProductRepository productRepository,
                             ProductVariantRepository productVariantRepository,
+                            MarketplaceVariantMappingRepository variantMappingRepository,
                             NotificationService notificationService,
                             WebhookService webhookService) {
         this.productRepository = productRepository;
         this.productVariantRepository = productVariantRepository;
+        this.variantMappingRepository = variantMappingRepository;
         this.notificationService = notificationService;
         this.webhookService = webhookService;
     }
@@ -48,9 +55,26 @@ public class InventoryService {
         List<Product> products = productRepository.findByTenantId(tenantId, Pageable.unpaged()).getContent();
         List<ProductVariant> variants = productVariantRepository.findByTenantId(tenantId);
 
+        // Build variantId -> lastSyncedAt map from marketplace variant mappings
+        List<MarketplaceVariantMapping> mappings = variantMappingRepository.findByTenantId(tenantId);
+        Map<UUID, Instant> variantSyncMap = mappings.stream()
+                .filter(m -> m.getVariant() != null && m.getStockLastCheckedAt() != null)
+                .collect(Collectors.toMap(
+                        m -> m.getVariant().getId(),
+                        MarketplaceVariantMapping::getStockLastCheckedAt,
+                        (a, b) -> a.isAfter(b) ? a : b // keep latest
+                ));
+
         List<InventoryItemDto> items = new ArrayList<>();
 
+        // Collect product IDs that have variants
+        Set<UUID> productsWithVariants = variants.stream()
+                .map(v -> v.getProduct().getId())
+                .collect(Collectors.toSet());
+
+        // Only show product-level row if it has NO variants
         for (Product p : products) {
+            if (productsWithVariants.contains(p.getId())) continue;
             items.add(new InventoryItemDto(
                     p.getId(),
                     "PRODUCT",
@@ -59,26 +83,27 @@ public class InventoryService {
                     p.getSku(),
                     p.getQuantity(),
                     p.getLowStockThreshold(),
-                    p.isTrackInventory()
+                    p.isTrackInventory(),
+                    null
             ));
         }
 
         for (ProductVariant v : variants) {
-            String productName = products.stream()
+            Product parent = products.stream()
                     .filter(p -> p.getId().equals(v.getProduct().getId()))
-                    .map(Product::getName)
                     .findFirst()
                     .orElse(null);
 
             items.add(new InventoryItemDto(
                     v.getId(),
                     "VARIANT",
-                    productName,
+                    parent != null ? parent.getName() : null,
                     v.getName(),
                     v.getSku(),
                     v.getQuantity(),
                     v.getLowStockThreshold(),
-                    false
+                    parent != null && parent.isTrackInventory(),
+                    variantSyncMap.get(v.getId())
             ));
         }
 
@@ -138,7 +163,8 @@ public class InventoryService {
                             product.getSku(),
                             product.getQuantity(),
                             product.getLowStockThreshold(),
-                            product.isTrackInventory()
+                            product.isTrackInventory(),
+                            null
                     ));
 
                     // Check low stock threshold and create notification
@@ -166,7 +192,8 @@ public class InventoryService {
                             variant.getSku(),
                             variant.getQuantity(),
                             variant.getLowStockThreshold(),
-                            false
+                            variant.getProduct().isTrackInventory(),
+                            null
                     ));
                 }
             }

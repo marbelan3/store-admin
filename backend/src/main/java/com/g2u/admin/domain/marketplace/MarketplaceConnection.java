@@ -27,9 +27,6 @@ public class MarketplaceConnection extends TenantAwareEntity {
     @Column(nullable = false, length = 30)
     private MarketplaceProvider provider;
 
-    @Column(name = "email", length = 255)
-    private String email;
-
     @Column(name = "api_key", length = 500)
     private String apiKey;
 

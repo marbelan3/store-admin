@@ -8,24 +8,24 @@ import com.g2u.admin.infrastructure.marketplace.CjApiException;
 import com.g2u.admin.infrastructure.marketplace.MarketplaceAdapter;
 import com.g2u.admin.infrastructure.marketplace.MarketplaceAdapter.CjProduct;
 import com.g2u.admin.infrastructure.marketplace.MarketplaceAdapter.CjVariant;
+import com.g2u.admin.service.MarketplaceSyncProcessor.SyncItemResult;
 import com.g2u.admin.web.dto.MarketplaceAlertDto;
 import com.g2u.admin.web.dto.MarketplaceSyncLogDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 @Service
-@Transactional
 public class MarketplaceSyncService {
 
     private static final Logger log = LoggerFactory.getLogger(MarketplaceSyncService.class);
@@ -33,158 +33,93 @@ public class MarketplaceSyncService {
     private final MarketplaceConnectionRepository connectionRepository;
     private final MarketplaceProductRepository marketplaceProductRepository;
     private final MarketplaceVariantMappingRepository variantMappingRepository;
-    private final MarketplacePriceHistoryRepository priceHistoryRepository;
     private final MarketplaceSyncLogRepository syncLogRepository;
     private final MarketplaceWatchlistItemRepository watchlistRepository;
     private final ProductRepository productRepository;
     private final MarketplaceAdapter marketplaceAdapter;
     private final MarketplaceConnectionService connectionService;
     private final NotificationService notificationService;
+    private final MarketplaceSyncProcessor processor;
 
     public MarketplaceSyncService(MarketplaceConnectionRepository connectionRepository,
                                    MarketplaceProductRepository marketplaceProductRepository,
                                    MarketplaceVariantMappingRepository variantMappingRepository,
-                                   MarketplacePriceHistoryRepository priceHistoryRepository,
                                    MarketplaceSyncLogRepository syncLogRepository,
                                    MarketplaceWatchlistItemRepository watchlistRepository,
                                    ProductRepository productRepository,
                                    MarketplaceAdapter marketplaceAdapter,
                                    MarketplaceConnectionService connectionService,
-                                   NotificationService notificationService) {
+                                   NotificationService notificationService,
+                                   MarketplaceSyncProcessor processor) {
         this.connectionRepository = connectionRepository;
         this.marketplaceProductRepository = marketplaceProductRepository;
         this.variantMappingRepository = variantMappingRepository;
-        this.priceHistoryRepository = priceHistoryRepository;
         this.syncLogRepository = syncLogRepository;
         this.watchlistRepository = watchlistRepository;
         this.productRepository = productRepository;
         this.marketplaceAdapter = marketplaceAdapter;
         this.connectionService = connectionService;
         this.notificationService = notificationService;
+        this.processor = processor;
     }
 
-    // --- Price Sync ---
+    // --- Price Sync (batch, per-product transactions) ---
 
     public void syncPrices(MarketplaceConnection connection) {
         String token = connectionService.getValidAccessToken(connection);
-        List<MarketplaceProduct> products = marketplaceProductRepository.findSyncableByConnectionId(connection.getId());
-        MarketplaceSyncLog syncLog = startSyncLog(connection, SyncType.PRICE);
+        syncPricesInternal(token, connection.getId());
+    }
+
+    private void syncPricesInternal(String token, UUID connectionId) {
+        List<UUID> productIds = processor.loadSyncableProductIds(connectionId);
+        UUID syncLogId = processor.createSyncLog(connectionId, SyncType.PRICE);
 
         int checked = 0, updated = 0, errors = 0;
         List<String> errorDetails = new ArrayList<>();
 
-        for (MarketplaceProduct mp : products) {
-            if (mp.isExcluded()) continue;
-            checked++;
-            try {
-                List<MarketplaceVariantMapping> mappings = variantMappingRepository.findByMarketplaceProductId(mp.getId());
-                boolean priceChanged = false;
-
-                for (MarketplaceVariantMapping mapping : mappings) {
-                    try {
-                        CjProduct detail = marketplaceAdapter.getProductDetails(token, mp.getExternalProductId());
-                        BigDecimal newSourcePrice = findVariantPrice(detail, mapping.getCjVariantId());
-
-                        if (newSourcePrice != null && mapping.getSourcePrice() != null
-                                && newSourcePrice.compareTo(mapping.getSourcePrice()) != 0) {
-                            // Record price history
-                            MarketplacePriceHistory history = MarketplacePriceHistory.builder()
-                                    .variantMapping(mapping)
-                                    .priceType(PriceType.PRODUCT)
-                                    .oldPrice(mapping.getSourcePrice())
-                                    .newPrice(newSourcePrice)
-                                    .build();
-                            priceHistoryRepository.save(history);
-
-                            mapping.setSourcePrice(newSourcePrice);
-                            variantMappingRepository.save(mapping);
-                            priceChanged = true;
-                        }
-                    } catch (Exception e) {
-                        errors++;
-                        errorDetails.add("Variant " + mapping.getCjSku() + ": " + e.getMessage());
-                    }
-                }
-
-                if (priceChanged) {
-                    updated++;
-                    recalculateMargin(mp, mappings);
-                    checkMarginAlert(mp);
-                    marketplaceProductRepository.save(mp);
-                }
-            } catch (Exception e) {
-                errors++;
-                errorDetails.add("Product " + mp.getExternalProductId() + ": " + e.getMessage());
-            }
+        for (UUID productId : productIds) {
+            SyncItemResult result = processor.syncPriceForProduct(token, productId);
+            checked += result.checked();
+            updated += result.updated();
+            errors += result.errors();
+            errorDetails.addAll(result.errorMessages());
         }
 
-        completeSyncLog(syncLog, checked, updated, errors, errorDetails);
+        processor.completeSyncLog(syncLogId, checked, updated, errors, errorDetails);
     }
 
-    // --- Stock Sync ---
+    // --- Stock Sync (batch, per-product transactions) ---
 
     public void syncStock(MarketplaceConnection connection) {
         String token = connectionService.getValidAccessToken(connection);
-        List<MarketplaceProduct> products = marketplaceProductRepository.findSyncableByConnectionId(connection.getId());
-        MarketplaceSyncLog syncLog = startSyncLog(connection, SyncType.STOCK);
+        syncStockInternal(token, connection.getId());
+    }
+
+    private void syncStockInternal(String token, UUID connectionId) {
+        List<UUID> productIds = processor.loadSyncableProductIds(connectionId);
+        UUID syncLogId = processor.createSyncLog(connectionId, SyncType.STOCK);
 
         int checked = 0, updated = 0, errors = 0;
         List<String> errorDetails = new ArrayList<>();
 
-        for (MarketplaceProduct mp : products) {
-            if (mp.isExcluded()) continue;
-            checked++;
-            try {
-                List<MarketplaceVariantMapping> mappings = variantMappingRepository.findByMarketplaceProductId(mp.getId());
-                boolean stockChanged = false;
-                int totalStock = 0;
-
-                for (MarketplaceVariantMapping mapping : mappings) {
-                    try {
-                        int newStock = marketplaceAdapter.getStock(token, mapping.getCjVariantId());
-                        if (mapping.getStockQuantity() == null || newStock != mapping.getStockQuantity()) {
-                            mapping.setStockQuantity(newStock);
-                            mapping.setStockLastCheckedAt(Instant.now());
-                            variantMappingRepository.save(mapping);
-
-                            // Update local variant quantity
-                            if (mapping.getVariant() != null) {
-                                mapping.getVariant().setQuantity(newStock);
-                            }
-                            stockChanged = true;
-                        }
-                        totalStock += newStock;
-                    } catch (Exception e) {
-                        errors++;
-                        errorDetails.add("Variant " + mapping.getCjSku() + ": " + e.getMessage());
-                    }
-                }
-
-                if (stockChanged) {
-                    updated++;
-                    // Update product total quantity
-                    mp.getProduct().setQuantity(totalStock);
-                    productRepository.save(mp.getProduct());
-                }
-
-                // Always check low stock alert during stock sync, even if stock didn't change
-                checkLowStockAlert(mp, totalStock);
-                marketplaceProductRepository.save(mp);
-            } catch (Exception e) {
-                errors++;
-                errorDetails.add("Product " + mp.getExternalProductId() + ": " + e.getMessage());
-            }
+        for (UUID productId : productIds) {
+            SyncItemResult result = processor.syncStockForProduct(token, productId);
+            checked += result.checked();
+            updated += result.updated();
+            errors += result.errors();
+            errorDetails.addAll(result.errorMessages());
         }
 
-        completeSyncLog(syncLog, checked, updated, errors, errorDetails);
+        processor.completeSyncLog(syncLogId, checked, updated, errors, errorDetails);
     }
 
     // --- SKU Validation ---
 
+    @Transactional
     public void validateSkus(MarketplaceConnection connection) {
         String token = connectionService.getValidAccessToken(connection);
         List<MarketplaceProduct> products = marketplaceProductRepository.findSyncableByConnectionId(connection.getId());
-        MarketplaceSyncLog syncLog = startSyncLog(connection, SyncType.SKU_VALIDATION);
+        UUID syncLogId = processor.createSyncLog(connection.getId(), SyncType.SKU_VALIDATION);
 
         int checked = 0, updated = 0, errors = 0;
         List<String> errorDetails = new ArrayList<>();
@@ -234,15 +169,16 @@ public class MarketplaceSyncService {
             }
         }
 
-        completeSyncLog(syncLog, checked, updated, errors, errorDetails);
+        processor.completeSyncLog(syncLogId, checked, updated, errors, errorDetails);
     }
 
     // --- Catalog Health Check ---
 
+    @Transactional
     public void checkCatalogHealth(MarketplaceConnection connection) {
         String token = connectionService.getValidAccessToken(connection);
         List<MarketplaceProduct> products = marketplaceProductRepository.findSyncableByConnectionId(connection.getId());
-        MarketplaceSyncLog syncLog = startSyncLog(connection, SyncType.CATALOG_HEALTH);
+        UUID syncLogId = processor.createSyncLog(connection.getId(), SyncType.CATALOG_HEALTH);
 
         int checked = 0, updated = 0, errors = 0;
         List<String> errorDetails = new ArrayList<>();
@@ -252,14 +188,12 @@ public class MarketplaceSyncService {
             checked++;
             try {
                 marketplaceAdapter.getProductDetails(token, mp.getExternalProductId());
-                // Product exists — mark as SYNCED if it was in error
                 if (mp.getSyncStatus() == SyncStatus.ERROR) {
                     mp.setSyncStatus(SyncStatus.SYNCED);
                     marketplaceProductRepository.save(mp);
                     updated++;
                 }
             } catch (CjApiException e) {
-                // Product not found — mark as DELISTED
                 if (mp.getSyncStatus() != SyncStatus.DELISTED) {
                     mp.setSyncStatus(SyncStatus.DELISTED);
                     mp.getProduct().setStatus(ProductStatus.ARCHIVED);
@@ -278,15 +212,16 @@ public class MarketplaceSyncService {
             }
         }
 
-        completeSyncLog(syncLog, checked, updated, errors, errorDetails);
+        processor.completeSyncLog(syncLogId, checked, updated, errors, errorDetails);
     }
 
     // --- Shipping Cache Refresh ---
 
+    @Transactional
     public void refreshShippingCache(MarketplaceConnection connection) {
         String token = connectionService.getValidAccessToken(connection);
         List<MarketplaceProduct> products = marketplaceProductRepository.findSyncableByConnectionId(connection.getId());
-        MarketplaceSyncLog syncLog = startSyncLog(connection, SyncType.TRACKING);
+        UUID syncLogId = processor.createSyncLog(connection.getId(), SyncType.TRACKING);
 
         int checked = 0, updated = 0, errors = 0;
         List<String> errorDetails = new ArrayList<>();
@@ -315,14 +250,14 @@ public class MarketplaceSyncService {
             }
         }
 
-        completeSyncLog(syncLog, checked, updated, errors, errorDetails);
+        processor.completeSyncLog(syncLogId, checked, updated, errors, errorDetails);
     }
 
     // --- Watchlist Sync ---
 
+    @Transactional
     public void syncWatchlist(MarketplaceConnection connection) {
         String token = connectionService.getValidAccessToken(connection);
-        // Get all watchlist items for this connection's tenant
         var watchlistItems = watchlistRepository.findByTenantId(connection.getTenantId(), Pageable.unpaged());
 
         for (MarketplaceWatchlistItem item : watchlistItems) {
@@ -339,20 +274,25 @@ public class MarketplaceSyncService {
         }
     }
 
-    // --- Run All for a Connection ---
+    // --- Run All for a Connection (async) ---
 
+    @Async
     public void runAllSyncs(UUID tenantId, UUID connectionId) {
-        MarketplaceConnection connection = connectionRepository.findByTenantIdAndId(tenantId, connectionId)
-                .orElseThrow();
-        syncPrices(connection);
-        syncStock(connection);
+        try {
+            log.info("Starting async sync for connection {}", connectionId);
+            String token = processor.getTokenForConnection(tenantId, connectionId);
+            syncPricesInternal(token, connectionId);
+            syncStockInternal(token, connectionId);
+            log.info("Async sync completed for connection {}", connectionId);
+        } catch (Exception e) {
+            log.error("Async sync failed for connection {}: {}", connectionId, e.getMessage(), e);
+        }
     }
 
     // --- Sync Logs ---
 
     @Transactional(readOnly = true)
     public Page<MarketplaceSyncLogDto> getSyncLogs(UUID tenantId, UUID connectionId, Pageable pageable) {
-        // Verify connection belongs to tenant
         connectionRepository.findByTenantIdAndId(tenantId, connectionId).orElseThrow();
         return syncLogRepository.findByConnectionIdOrderByStartedAtDesc(connectionId, pageable)
                 .map(this::toSyncLogDto);
@@ -378,67 +318,6 @@ public class MarketplaceSyncService {
 
     // --- Internal Helpers ---
 
-    private void recalculateMargin(MarketplaceProduct mp, List<MarketplaceVariantMapping> mappings) {
-        BigDecimal totalSource = BigDecimal.ZERO;
-        BigDecimal totalSelling = BigDecimal.ZERO;
-
-        for (MarketplaceVariantMapping m : mappings) {
-            if (m.getSourcePrice() != null && m.getVariant() != null && m.getVariant().getPrice() != null) {
-                totalSource = totalSource.add(m.getSourcePrice());
-                totalSelling = totalSelling.add(m.getVariant().getPrice());
-            }
-        }
-
-        if (totalSelling.compareTo(BigDecimal.ZERO) > 0) {
-            BigDecimal margin = totalSelling.subtract(totalSource)
-                    .divide(totalSelling, 4, RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal("100"))
-                    .setScale(2, RoundingMode.HALF_UP);
-            mp.setCurrentMarginPct(margin);
-        }
-    }
-
-    private void checkMarginAlert(MarketplaceProduct mp) {
-        if (mp.getMinMarginPct() != null && mp.getCurrentMarginPct() != null
-                && mp.getCurrentMarginPct().compareTo(mp.getMinMarginPct()) < 0) {
-            if (!mp.isMarginAlertTriggered()) {
-                mp.setMarginAlertTriggered(true);
-                notificationService.createNotification(mp.getTenantId(), null,
-                        NotificationType.MARKETPLACE_MARGIN_ALERT,
-                        "Low margin alert: " + mp.getProduct().getName(),
-                        "Current margin " + mp.getCurrentMarginPct() + "% is below minimum " + mp.getMinMarginPct() + "%");
-            }
-        } else {
-            mp.setMarginAlertTriggered(false);
-        }
-    }
-
-    private void checkLowStockAlert(MarketplaceProduct mp, int totalStock) {
-        if (mp.getLowStockThreshold() != null && totalStock <= mp.getLowStockThreshold()) {
-            if (!mp.isStockAlertSent()) {
-                mp.setStockAlertSent(true);
-                notificationService.createNotification(mp.getTenantId(), null,
-                        NotificationType.MARKETPLACE_LOW_STOCK,
-                        "Low stock: " + mp.getProduct().getName(),
-                        "Marketplace product stock is " + totalStock + " (threshold: " + mp.getLowStockThreshold() + ")");
-            }
-        } else {
-            // Stock recovered above threshold — reset alert
-            mp.setStockAlertSent(false);
-        }
-    }
-
-    private BigDecimal findVariantPrice(CjProduct product, String cjVariantId) {
-        if (product.variants() != null) {
-            for (CjVariant v : product.variants()) {
-                if (v.vid().equals(cjVariantId)) {
-                    return v.variantSellPrice();
-                }
-            }
-        }
-        return product.sellPrice();
-    }
-
     private CjVariant findVariant(CjProduct product, String cjVariantId) {
         if (product.variants() != null) {
             for (CjVariant v : product.variants()) {
@@ -448,30 +327,6 @@ public class MarketplaceSyncService {
             }
         }
         return null;
-    }
-
-    private MarketplaceSyncLog startSyncLog(MarketplaceConnection connection, SyncType syncType) {
-        MarketplaceSyncLog syncLog = MarketplaceSyncLog.builder()
-                .connection(connection)
-                .syncType(syncType)
-                .status("RUNNING")
-                .build();
-        return syncLogRepository.save(syncLog);
-    }
-
-    private void completeSyncLog(MarketplaceSyncLog syncLog, int checked, int updated, int errors, List<String> errorDetails) {
-        syncLog.setItemsChecked(checked);
-        syncLog.setItemsUpdated(updated);
-        syncLog.setErrorsCount(errors);
-        syncLog.setStatus(errors > 0 ? "COMPLETED_WITH_ERRORS" : "COMPLETED");
-        syncLog.setCompletedAt(Instant.now());
-        if (!errorDetails.isEmpty()) {
-            syncLog.setErrorDetails("[" + String.join(",", errorDetails.stream()
-                    .map(s -> "\"" + s.replace("\"", "\\\"") + "\"").toList()) + "]");
-        }
-        syncLogRepository.save(syncLog);
-        log.info("Sync {} completed: checked={}, updated={}, errors={}",
-                syncLog.getSyncType(), checked, updated, errors);
     }
 
     private MarketplaceSyncLogDto toSyncLogDto(MarketplaceSyncLog l) {

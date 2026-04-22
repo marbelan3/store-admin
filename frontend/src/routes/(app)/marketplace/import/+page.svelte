@@ -3,13 +3,18 @@
 	import { auth } from '$lib/stores/auth.svelte';
 	import {
 		getConnections,
+		getCjCategories,
 		searchCatalog,
+		listByCategory,
 		getCjProductDetail,
 		importProduct,
 		addToWatchlist
 	} from '$lib/api/marketplace';
 	import type {
 		MarketplaceConnection,
+		CjCategory,
+		CjSubCategory,
+		CjLeafCategory,
 		CjCatalogProduct,
 		CjProductDetail,
 		CjVariant,
@@ -30,6 +35,9 @@
 	import DownloadIcon from '@lucide/svelte/icons/download';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import PackageIcon from '@lucide/svelte/icons/package';
+	import LayoutGridIcon from '@lucide/svelte/icons/layout-grid';
+	import ListIcon from '@lucide/svelte/icons/list';
+	import XIcon from '@lucide/svelte/icons/x';
 
 	let connections = $state<MarketplaceConnection[]>([]);
 	let selectedConnectionId = $state('');
@@ -37,6 +45,34 @@
 	let searchResults = $state<CjCatalogProduct[]>([]);
 	let searching = $state(false);
 	let loadingConnections = $state(true);
+
+	// Categories
+	let categories = $state<CjCategory[]>([]);
+	let loadingCategories = $state(false);
+	let selectedFirstCat = $state('');
+	let selectedLeafCatId = $state('');
+	let browseMode = $state<'category' | 'search'>('category');
+
+	let availableLeafCategories = $derived.by(() => {
+		if (!selectedFirstCat) return [];
+		const first = categories.find(c => c.name === selectedFirstCat);
+		if (!first) return [];
+		const leaves: CjLeafCategory[] = [];
+		for (const sub of first.subCategories) {
+			for (const leaf of sub.categories) {
+				leaves.push(leaf);
+			}
+		}
+		return leaves;
+	});
+
+	// Pagination
+	const PAGE_SIZE = 20;
+	let currentPage = $state(1);
+	let hasMore = $state(false);
+
+	// View mode
+	let viewMode = $state<'grid' | 'list'>('grid');
 
 	// Batch selection
 	let selectedPids = $state<Set<string>>(new Set());
@@ -83,6 +119,7 @@
 			connections = await getConnections();
 			if (connections.length > 0) {
 				selectedConnectionId = connections[0].id;
+				loadCategoriesForConnection(connections[0].id);
 			}
 		} catch {
 			toast.error('Failed to load connections');
@@ -91,12 +128,46 @@
 		}
 	}
 
-	async function handleSearch() {
+	async function loadCategoriesForConnection(connectionId: string) {
+		loadingCategories = true;
+		try {
+			categories = await getCjCategories(connectionId);
+		} catch {
+			// Categories are optional — don't block the page
+		} finally {
+			loadingCategories = false;
+		}
+	}
+
+	async function handleBrowseCategory(page = 1) {
+		if (!selectedConnectionId || !selectedLeafCatId) return;
+		searching = true;
+		browseMode = 'category';
+		if (page === 1) selectedPids = new Set();
+		try {
+			searchResults = await listByCategory(selectedConnectionId, selectedLeafCatId, page, PAGE_SIZE);
+			currentPage = page;
+			hasMore = searchResults.length === PAGE_SIZE;
+		} catch (err: any) {
+			toast.error(err.message || 'Failed to load category products');
+		} finally {
+			searching = false;
+		}
+	}
+
+	async function handleSearch(page = 1) {
 		if (!selectedConnectionId || !searchQuery.trim()) return;
 		searching = true;
-		selectedPids = new Set();
+		browseMode = 'search';
+		if (page === 1) {
+			selectedPids = new Set();
+			selectedFirstCat = '';
+			selectedLeafCatId = '';
+		}
 		try {
-			searchResults = await searchCatalog(selectedConnectionId, searchQuery);
+			searchResults = await searchCatalog(selectedConnectionId, searchQuery, page, PAGE_SIZE);
+			currentPage = page;
+			hasMore = searchResults.length === PAGE_SIZE;
 		} catch (err: any) {
 			toast.error(err.message || 'Search failed');
 		} finally {
@@ -320,10 +391,64 @@
 				onkeydown={handleSearchKeydown}
 			/>
 		</div>
-		<Button onclick={handleSearch} disabled={searching || !selectedConnectionId}>
+		<Button onclick={() => handleSearch()} disabled={searching || !selectedConnectionId}>
 			{searching ? 'Searching...' : 'Search'}
 		</Button>
 	</div>
+
+	<!-- Category Browser -->
+	{#if categories.length > 0}
+		<div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+			<Select.Root
+				type="single"
+				value={selectedFirstCat}
+				onValueChange={(v) => { selectedFirstCat = v; selectedLeafCatId = ''; }}
+			>
+				<Select.Trigger class="w-full sm:w-56">
+					{selectedFirstCat || 'Browse by category...'}
+				</Select.Trigger>
+				<Select.Content class="max-h-64 overflow-y-auto">
+					{#each categories as cat}
+						<Select.Item value={cat.name}>{cat.name}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+
+			{#if availableLeafCategories.length > 0}
+				<Select.Root
+					type="single"
+					value={selectedLeafCatId}
+					onValueChange={(v) => { selectedLeafCatId = v; handleBrowseCategory(); }}
+				>
+					<Select.Trigger class="w-full sm:w-64">
+						{availableLeafCategories.find(l => l.categoryId === selectedLeafCatId)?.categoryName || 'Select subcategory...'}
+					</Select.Trigger>
+					<Select.Content class="max-h-64 overflow-y-auto">
+						{#each availableLeafCategories as leaf}
+							<Select.Item value={leaf.categoryId}>{leaf.categoryName}</Select.Item>
+						{/each}
+					</Select.Content>
+				</Select.Root>
+			{/if}
+
+			{#if selectedFirstCat}
+				<Button
+					variant="ghost"
+					size="sm"
+					class="text-muted-foreground"
+					onclick={() => { selectedFirstCat = ''; selectedLeafCatId = ''; searchResults = []; hasMore = false; }}
+				>
+					<XIcon class="mr-1 h-3.5 w-3.5" />
+					Clear filter
+				</Button>
+			{/if}
+		</div>
+	{:else if loadingCategories}
+		<div class="flex gap-3">
+			<Skeleton class="h-10 w-56" />
+			<Skeleton class="h-10 w-64" />
+		</div>
+	{/if}
 
 	<!-- Results -->
 	{#if searching}
@@ -338,67 +463,138 @@
 				</Card.Root>
 			{/each}
 		</div>
-	{:else if searchResults.length === 0 && searchQuery}
+	{:else if searchResults.length === 0 && (searchQuery || selectedLeafCatId)}
 		<div class="rounded-lg border border-dashed">
 			<EmptyState
 				icon={PackageIcon}
 				title="No results"
-				description="Try different keywords or check your connection."
+				description="Try different keywords, another category, or check your connection."
 			/>
 		</div>
 	{:else if searchResults.length > 0}
-		<div class="flex items-center gap-2 text-sm text-muted-foreground">
-			<button
-				class="underline hover:text-foreground"
-				onclick={toggleSelectAll}
-			>
-				{selectedPids.size === searchResults.length ? 'Deselect all' : 'Select all'}
-			</button>
-			<span>·</span>
-			<span>{searchResults.length} results</span>
+		<div class="flex items-center justify-between">
+			<div class="flex items-center gap-2 text-sm text-muted-foreground">
+				<button
+					class="underline hover:text-foreground"
+					onclick={toggleSelectAll}
+				>
+					{selectedPids.size === searchResults.length ? 'Deselect all' : 'Select all'}
+				</button>
+				<span>·</span>
+				<span>{searchResults.length} results</span>
+			</div>
+			<div class="flex items-center rounded-lg border p-0.5">
+				<button
+					class="rounded-md p-1.5 transition-colors {viewMode === 'grid' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}"
+					onclick={() => (viewMode = 'grid')}
+					title="Grid view"
+				>
+					<LayoutGridIcon class="h-4 w-4" />
+				</button>
+				<button
+					class="rounded-md p-1.5 transition-colors {viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'}"
+					onclick={() => (viewMode = 'list')}
+					title="List view"
+				>
+					<ListIcon class="h-4 w-4" />
+				</button>
+			</div>
 		</div>
 
-		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-			{#each searchResults as product}
-				<Card.Root class="overflow-hidden group relative">
-					<!-- Checkbox -->
-					<div class="absolute top-2 left-2 z-10">
+		{#if viewMode === 'grid'}
+			<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+				{#each searchResults as product}
+					<Card.Root class="overflow-hidden group relative">
+						<!-- Checkbox -->
+						<div class="absolute top-2 left-2 z-10">
+							<input
+								type="checkbox"
+								checked={selectedPids.has(product.pid)}
+								onchange={() => toggleSelectProduct(product.pid)}
+								class="h-4 w-4 rounded border-gray-300 accent-primary cursor-pointer"
+							/>
+						</div>
+
+						<!-- Product image -->
+						<div class="aspect-square overflow-hidden bg-muted">
+							{#if product.image}
+								<img
+									src={product.image}
+									alt={product.name}
+									class="h-full w-full object-cover transition-transform group-hover:scale-105"
+								/>
+							{:else}
+								<div class="flex h-full items-center justify-center">
+									<PackageIcon class="h-12 w-12 text-muted-foreground/30" />
+								</div>
+							{/if}
+						</div>
+
+						<Card.Content class="pt-3 space-y-2">
+							<p class="text-sm font-medium line-clamp-2 leading-tight">{product.name}</p>
+							<div class="flex items-center justify-between">
+								<span class="text-lg font-semibold text-primary">{formatPrice(product.price)}</span>
+								{#if product.categoryName}
+									<Badge variant="outline" class="text-xs">{product.categoryName}</Badge>
+								{/if}
+							</div>
+							<div class="flex gap-1 pt-1">
+								<Button
+									variant="default"
+									size="sm"
+									class="flex-1"
+									onclick={() => openProductDetail(product)}
+								>
+									<DownloadIcon class="mr-1 h-3.5 w-3.5" />
+									Import
+								</Button>
+								<Button
+									variant="outline"
+									size="sm"
+									onclick={() => handleAddToWatchlist(product)}
+									title="Add to watchlist"
+								>
+									<EyeIcon class="h-3.5 w-3.5" />
+								</Button>
+							</div>
+						</Card.Content>
+					</Card.Root>
+				{/each}
+			</div>
+		{:else}
+			<div class="space-y-2">
+				{#each searchResults as product}
+					<div class="flex items-center gap-4 rounded-lg border p-3 hover:bg-muted/50 transition-colors group">
 						<input
 							type="checkbox"
 							checked={selectedPids.has(product.pid)}
 							onchange={() => toggleSelectProduct(product.pid)}
-							class="h-4 w-4 rounded border-gray-300 accent-primary cursor-pointer"
+							class="h-4 w-4 rounded border-gray-300 accent-primary cursor-pointer flex-shrink-0"
 						/>
-					</div>
-
-					<!-- Product image -->
-					<div class="aspect-square overflow-hidden bg-muted">
-						{#if product.image}
-							<img
-								src={product.image}
-								alt={product.name}
-								class="h-full w-full object-cover transition-transform group-hover:scale-105"
-							/>
-						{:else}
-							<div class="flex h-full items-center justify-center">
-								<PackageIcon class="h-12 w-12 text-muted-foreground/30" />
-							</div>
-						{/if}
-					</div>
-
-					<Card.Content class="pt-3 space-y-2">
-						<p class="text-sm font-medium line-clamp-2 leading-tight">{product.name}</p>
-						<div class="flex items-center justify-between">
-							<span class="text-lg font-semibold text-primary">{formatPrice(product.price)}</span>
-							{#if product.categoryName}
-								<Badge variant="outline" class="text-xs">{product.categoryName}</Badge>
+						<div class="h-14 w-14 flex-shrink-0 overflow-hidden rounded-md bg-muted">
+							{#if product.image}
+								<img
+									src={product.image}
+									alt={product.name}
+									class="h-full w-full object-cover"
+								/>
+							{:else}
+								<div class="flex h-full items-center justify-center">
+									<PackageIcon class="h-6 w-6 text-muted-foreground/30" />
+								</div>
 							{/if}
 						</div>
-						<div class="flex gap-1 pt-1">
+						<div class="flex-1 min-w-0">
+							<p class="text-sm font-medium truncate">{product.name}</p>
+							{#if product.categoryName}
+								<Badge variant="outline" class="text-xs mt-1">{product.categoryName}</Badge>
+							{/if}
+						</div>
+						<span class="text-lg font-semibold text-primary flex-shrink-0">{formatPrice(product.price)}</span>
+						<div class="flex gap-1 flex-shrink-0">
 							<Button
 								variant="default"
 								size="sm"
-								class="flex-1"
 								onclick={() => openProductDetail(product)}
 							>
 								<DownloadIcon class="mr-1 h-3.5 w-3.5" />
@@ -413,16 +609,40 @@
 								<EyeIcon class="h-3.5 w-3.5" />
 							</Button>
 						</div>
-					</Card.Content>
-				</Card.Root>
-			{/each}
-		</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
+
+		<!-- Pagination -->
+		{#if currentPage > 1 || hasMore}
+			{@const goToPage = browseMode === 'category' ? handleBrowseCategory : handleSearch}
+			<div class="flex items-center justify-center gap-2 pt-4">
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={currentPage <= 1 || searching}
+					onclick={() => goToPage(currentPage - 1)}
+				>
+					Previous
+				</Button>
+				<span class="text-sm text-muted-foreground">Page {currentPage}</span>
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={!hasMore || searching}
+					onclick={() => goToPage(currentPage + 1)}
+				>
+					Next
+				</Button>
+			</div>
+		{/if}
 	{/if}
 </div>
 
 <!-- Product Detail / Import Dialog -->
 <Dialog.Root bind:open={detailDialogOpen}>
-	<Dialog.Content class="max-w-3xl max-h-[90vh] overflow-y-auto">
+	<Dialog.Content class="max-w-5xl max-h-[90vh] overflow-y-auto">
 		<Dialog.Header>
 			<Dialog.Title>Import Product</Dialog.Title>
 		</Dialog.Header>

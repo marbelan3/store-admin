@@ -8,7 +8,6 @@ export type ExternalStockStatus = 'IN_STOCK' | 'LOW' | 'OUT_OF_STOCK';
 export interface MarketplaceConnection {
 	id: string;
 	provider: MarketplaceProvider;
-	email: string | null;
 	status: ConnectionStatus;
 	syncEnabled: boolean;
 	defaultWarehouseId: string | null;
@@ -20,14 +19,12 @@ export interface MarketplaceConnection {
 
 export interface CreateConnectionRequest {
 	provider: string;
-	email: string;
 	apiKey: string;
 	defaultWarehouseId?: string;
 	defaultShippingMethod?: string;
 }
 
 export interface UpdateConnectionRequest {
-	email?: string;
 	apiKey?: string;
 	syncEnabled?: boolean;
 	defaultWarehouseId?: string;
@@ -67,6 +64,21 @@ export interface MarketplaceProduct {
 	variantMappings: VariantMapping[];
 	createdAt: string;
 	updatedAt: string;
+}
+
+export interface CjLeafCategory {
+	categoryId: string;
+	categoryName: string;
+}
+
+export interface CjSubCategory {
+	name: string;
+	categories: CjLeafCategory[];
+}
+
+export interface CjCategory {
+	name: string;
+	subCategories: CjSubCategory[];
 }
 
 export interface CjCatalogProduct {

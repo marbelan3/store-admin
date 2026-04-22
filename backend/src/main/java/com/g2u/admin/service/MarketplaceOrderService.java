@@ -179,6 +179,7 @@ public class MarketplaceOrderService {
         }
 
         CjOrderRequest cjRequest = new CjOrderRequest(
+                connection.getDefaultWarehouseId() != null ? connection.getDefaultWarehouseId() : "CN",
                 request.shippingCountry(),
                 request.shippingProvince(),
                 request.shippingCity(),

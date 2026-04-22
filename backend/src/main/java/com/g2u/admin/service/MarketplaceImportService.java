@@ -21,6 +21,7 @@ import com.g2u.admin.infrastructure.marketplace.MarketplaceAdapter;
 import com.g2u.admin.infrastructure.marketplace.MarketplaceAdapter.CjProduct;
 import com.g2u.admin.infrastructure.marketplace.MarketplaceAdapter.CjVariant;
 import com.g2u.admin.web.dto.CjCatalogProductDto;
+import com.g2u.admin.web.dto.CjCategoryDto;
 import com.g2u.admin.web.dto.CjProductDetailDto;
 import com.g2u.admin.web.dto.ImportProductRequest;
 import com.g2u.admin.web.dto.MarketplaceProductDto;
@@ -90,6 +91,37 @@ public class MarketplaceImportService {
     }
 
     @Transactional(readOnly = true)
+    public List<CjCatalogProductDto> listByCategory(UUID tenantId, UUID connectionId,
+                                                     String categoryId, int page, int pageSize) {
+        MarketplaceConnection connection = findConnection(tenantId, connectionId);
+        String token = connectionService.getValidAccessToken(connection);
+
+        List<CjProduct> products = marketplaceAdapter.listProductsByCategory(token, categoryId, page, pageSize);
+        return products.stream()
+                .map(p -> new CjCatalogProductDto(p.pid(), p.productName(), p.productImage(),
+                        p.categoryName(), p.sellPrice()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<CjCategoryDto> getCategories(UUID tenantId, UUID connectionId) {
+        MarketplaceConnection connection = findConnection(tenantId, connectionId);
+        String token = connectionService.getValidAccessToken(connection);
+
+        return marketplaceAdapter.getCategories(token).stream()
+                .map(c -> new CjCategoryDto(
+                        c.name(),
+                        c.subCategories().stream()
+                                .map(s -> new CjCategoryDto.SubCategory(
+                                        s.name(),
+                                        s.categories().stream()
+                                                .map(l -> new CjCategoryDto.LeafCategory(l.categoryId(), l.categoryName()))
+                                                .toList()))
+                                .toList()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public CjProductDetailDto getProductDetail(UUID tenantId, UUID connectionId, String externalProductId) {
         MarketplaceConnection connection = findConnection(tenantId, connectionId);
         String token = connectionService.getValidAccessToken(connection);
@@ -100,11 +132,20 @@ public class MarketplaceImportService {
             variants = marketplaceAdapter.getVariants(token, externalProductId);
         }
 
-        List<CjProductDetailDto.CjVariantDto> variantDtos = variants.stream()
-                .map(v -> new CjProductDetailDto.CjVariantDto(
-                        v.vid(), v.variantName(), v.variantSku(),
-                        v.variantSellPrice(), v.variantImage(), v.stock()))
-                .toList();
+        List<CjProductDetailDto.CjVariantDto> variantDtos = new ArrayList<>();
+        for (CjVariant v : variants) {
+            int stock = v.stock();
+            if (stock <= 0) {
+                try {
+                    stock = marketplaceAdapter.getStock(token, v.vid());
+                } catch (Exception e) {
+                    log.warn("Failed to fetch stock for variant {}: {}", v.vid(), e.getMessage());
+                }
+            }
+            variantDtos.add(new CjProductDetailDto.CjVariantDto(
+                    v.vid(), v.variantName(), v.variantSku(),
+                    v.variantSellPrice(), v.variantImage(), stock));
+        }
 
         return new CjProductDetailDto(
                 product.pid(), product.productName(), product.description(),

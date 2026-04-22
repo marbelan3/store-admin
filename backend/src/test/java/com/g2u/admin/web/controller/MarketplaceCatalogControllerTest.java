@@ -67,7 +67,7 @@ class MarketplaceCatalogControllerTest {
         token = jwtTokenProvider.generateAccessToken(userId, tenantId, "admin@test.com", "TENANT_ADMIN");
 
         MarketplaceConnectionDto conn = connectionService.createConnection(tenantId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "test@test.com", "test-key", "CN", null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "test-key", "CN", null));
         connectionId = conn.id();
     }
 

@@ -77,9 +77,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex) {
-        log.warn("Data integrity violation: {}", ex.getMessage());
+        String rootCause = ex.getMostSpecificCause().getMessage();
+        log.warn("Data integrity violation: {}", rootCause);
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(new ErrorResponse(409, "Data conflict: a related resource constraint was violated"));
+                .body(new ErrorResponse(409, "Data conflict: " + rootCause));
     }
 
     @ExceptionHandler(CjRateLimitException.class)

@@ -79,7 +79,7 @@ class MarketplaceImportServiceIntegrationTest {
         tenantId = tenant.getId();
 
         MarketplaceConnectionDto conn = connectionService.createConnection(tenantId,
-                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "test@test.com", "test-key", "CN", null));
+                new CreateMarketplaceConnectionRequest("CJ_DROPSHIPPING", "test-key", "CN", null));
         connectionId = conn.id();
     }
 

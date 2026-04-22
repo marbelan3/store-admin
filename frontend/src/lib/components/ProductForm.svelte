@@ -30,6 +30,8 @@
 
 	let { product, onSubmit, submitLabel, submittingLabel, actions }: Props = $props();
 
+	let currencyLabel = $derived(product?.currency ?? '');
+
 	// Unsaved changes tracking
 	const unsaved = createUnsavedChanges();
 	let formTouched = $state(false);
@@ -335,7 +337,7 @@
 		<Card.Content class="space-y-4">
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 				<div class="space-y-2">
-					<Label for="price">Price (UAH)</Label>
+					<Label for="price">Price{currencyLabel ? ` (${currencyLabel})` : ''}</Label>
 					<Input id="price" type="number" step="0.01" bind:value={price} placeholder="0.00" oninput={() => clearError('price')} />
 					{#if errors.price}<p class="text-sm text-destructive">{errors.price}</p>{/if}
 				</div>
@@ -593,7 +595,7 @@
 									<Input bind:value={variant.sku} placeholder="SKU" />
 								</div>
 								<div class="space-y-1">
-									<Label>Price (UAH)</Label>
+									<Label>Price{currencyLabel ? ` (${currencyLabel})` : ''}</Label>
 									<Input type="number" step="0.01" bind:value={variant.price} placeholder="0.00" />
 								</div>
 								<div class="space-y-1">

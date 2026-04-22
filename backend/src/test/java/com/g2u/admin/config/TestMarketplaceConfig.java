@@ -27,7 +27,7 @@ public class TestMarketplaceConfig {
     public MarketplaceAdapter testMarketplaceAdapter() {
         return new MarketplaceAdapter() {
             @Override
-            public String authenticate(String email, String apiKey) {
+            public String authenticate(String apiKey) {
                 if (FAIL_AUTH.get()) throw new CjAuthException("Invalid API key");
                 return "test-access-token-" + apiKey.hashCode();
             }
